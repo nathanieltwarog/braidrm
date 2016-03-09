@@ -1,6 +1,8 @@
-findBestBRAID <- function(concs,act,defaults,startparv=NULL,llims=NULL,ulims=NULL,itype=1,getCIs=TRUE,crossval=TRUE,...) UseMethod("findBestBRAID")
+findBestBRAID <- function(model,data,defaults,startparv=NULL,llims=NULL,ulims=NULL,itype=1,getCIs=TRUE,crossval=TRUE,...) UseMethod("findBestBRAID")
 
-findBestBRAID.default <- function(concs,act,defaults,startparv=NULL,llims=NULL,ulims=NULL,itype=1,getCIs=TRUE,crossval=TRUE,...) {
+findBestBRAID.default <- function(model,data,defaults,startparv=NULL,llims=NULL,ulims=NULL,itype=1,getCIs=TRUE,crossval=TRUE,...) {
+	concs <- model
+	act <- data
 	if (ncol(concs)<2) { stop("Argument 'concs' must have at least two columns.") }
 	
 	# Construct a basic set of default values (if needed), and constrain defaults to lie
@@ -135,8 +137,8 @@ findBestBRAID.default <- function(concs,act,defaults,startparv=NULL,llims=NULL,u
 	bfit$call <- match.call()
 	return(bfit)
 }
-findBestBRAID.formula <- function(formula,data,...) {
-	mf <- model.frame(formula=formula, data=data)
+findBestBRAID.formula <- function(model,data,...) {
+	mf <- model.frame(formula=model, data=data)
 	concs <- model.matrix(attr(mf, "terms"), data=mf)
 	tms <- attr(concs,"assign")
 	for (i in seq(length(tms),1,by=-1)) {

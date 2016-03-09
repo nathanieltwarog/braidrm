@@ -22,9 +22,11 @@ print.braidrm <- function(x, ...) {
 	print(x$fullpar)
 }
 
-braidrm <- function(concs,act,getCIs=TRUE,fixed="kappa2",startparv=NULL,llims=NULL,ulims=NULL,...) UseMethod("braidrm")
+braidrm <- function(model,data,getCIs=TRUE,fixed="kappa2",startparv=NULL,llims=NULL,ulims=NULL,...) UseMethod("braidrm")
 
-braidrm.default <- function(concs,act,getCIs=TRUE,fixed="kappa2",startparv=NULL,llims=NULL,ulims=NULL,...) {
+braidrm.default <- function(model,data,getCIs=TRUE,fixed="kappa2",startparv=NULL,llims=NULL,ulims=NULL,...) {
+	concs <- model
+	act <- data
 	if (ncol(concs)!=2) { stop("Parameter 'concs' must be an array with two columns.") }
 	conc1 <- as.vector(concs[,1])
 	conc2 <- as.vector(concs[,2])
@@ -65,8 +67,8 @@ braidrm.default <- function(concs,act,getCIs=TRUE,fixed="kappa2",startparv=NULL,
 	if (getCIs) { bfit <- getBRAIDbootstrap(bfit) }
 	return(bfit)
 }
-braidrm.formula <- function(formula,data,...) {
-	mf <- model.frame(formula=formula, data=data)
+braidrm.formula <- function(model,data,...) {
+	mf <- model.frame(formula=model, data=data)
 	concs <- model.matrix(attr(mf, "terms"), data=mf)
 	tms <- attr(concs,"assign")
 	for (i in seq(length(tms),1,by=-1)) {

@@ -1,6 +1,8 @@
-findBestHill <- function(conc,act,defaults,startparv=NULL,llims=NULL,ulims=NULL,...) UseMethod("findBestHill")
+findBestHill <- function(model,data,defaults,startparv=NULL,llims=NULL,ulims=NULL,...) UseMethod("findBestHill")
 
-findBestHill.default <- function(conc,act,defaults,startparv=NULL,llims=NULL,ulims=NULL,...) {
+findBestHill.default <- function(model,data,defaults,startparv=NULL,llims=NULL,ulims=NULL,...) {
+	conc <- model
+	act <- data
 	if (is.null(startparv)) { startparv <- c(NA,NA,NA,NA) }
 	drdef <- dr_start(conc,act)
 	def <- startparv
@@ -48,8 +50,8 @@ findBestHill.default <- function(conc,act,defaults,startparv=NULL,llims=NULL,uli
 	fit_l <- list(conc=conc,act=act,bestModIdx=bmi,bestModName=names(allfits)[bmi],allfits=allfits,mlims=mlims)
 	return(fit_l)
 }
-findBestHill.formula <- function(formula,data,...) {
-	mf <- model.frame(formula=formula, data=data)
+findBestHill.formula <- function(model,data,...) {
+	mf <- model.frame(formula=model, data=data)
 	conc <- model.matrix(attr(mf, "terms"), data=mf)
 	tms <- attr(conc,"assign")
 	for (i in seq(length(tms),1,by=-1)) {
