@@ -10,14 +10,13 @@ Fits the given concentration and response data with several Hill (or log-likelih
 balances simplicity and accuracy according to the Akaike Information Criterion.
 }
 \usage{
-\method{findBestHill}{default}(conc,act,defaults,startparv=NULL,llims=NULL,ulims=NULL,...)
-\method{findBestHill}{formula}(formula,data,...)
+\method{findBestHill}{default}(model,data,defaults,startparv=NULL,llims=NULL,ulims=NULL,...)
+\method{findBestHill}{formula}(model,data,...)
 }
 \arguments{
-  \item{conc}{ a vector of concentrations }
-  \item{act}{ a vector of measurements of response to the concentrations set down in \code{conc} }
-  \item{formula}{ a symbolic formula (e.g. \code{act ~ conc}) specifying which variables are to be fit }
-  \item{data}{ a data frame containing the columns specified in \code{formula} }
+  \item{model}{ a vector of concentrations, or a symbolic formula (e.g. \code{act ~ conc}) specifying which variables are to be fit }
+  \item{data}{ if \code{model} is a vector, a vector of measurements of response to the concentrations set down in \code{conc};
+if \code{model} is formula, a data frame containing the columns specified in \code{formula} }
   \item{defaults}{ two-element vector specifying the default initial and maximal effects for the Hill model.  These values will
 be used in several of the models that are tried (see Details below).}
   \item{startparv}{ an optional parameter specifying starting parameter values for the optimization.  Any parameters that do not

@@ -13,16 +13,16 @@ Calculates the best fit BRAID response surface given the concentrations of two d
 response of a measured target to the combination of those drugs.
 }
 \usage{
-\method{braidrm}{default}(concs,act,getCIs=TRUE,fixed="kappa2",startparv=NULL,llims=NULL,ulims=NULL,...)
-\method{braidrm}{formula}(formula,data,...)
+\method{braidrm}{default}(model,data,getCIs=TRUE,fixed="kappa2",startparv=NULL,llims=NULL,ulims=NULL,...)
+\method{braidrm}{formula}(model,data,...)
 \method{print}{braidrm}(x, ...)
 \method{summary}{braidrm}(object, ...)
 }
 \arguments{
-  \item{concs}{ a two-column array containing concentrations of Drug 1 and Drug 2 in each dose pair }
-  \item{act}{ a vector of measurements of  response to the concentrations of Drug 1 and Drug 2 set down in \code{concs} }
-  \item{formula}{ a symbolic formula (e.g. \code{act ~ conc1+conc2}) specifying which variables are to be fit }
-  \item{data}{ a data frame containing the columns specified in \code{formula} }
+  \item{model}{ a two-column array containing concentrations of Drug 1 and Drug 2 in each dose pair, or a symbolic formula (e.g.
+\code{act ~ conc1+conc2}) specifying which variables are to be fit }
+  \item{data}{ if \code{model} is an array, a vector of measurements of  response to the concentrations of Drug 1 and Drug 2;
+if \code{model} is a formula, a data frame containing the columns specified in \code{formula} }
   \item{getCIs}{ determines if confidence intervals will be calculated for all response surface parameters being fit.
 Parameters are fit using a bootstrapping approach which resamples residuals and refits the new data. }
   \item{fixed}{ parameter specifying which parameters of the full BRAID model will be fit.  See Details for a full description

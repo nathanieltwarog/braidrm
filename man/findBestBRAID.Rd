@@ -7,15 +7,15 @@
 Fits several BRAID surface models to the given data, and selects the most parsimonious model using the Akaike information criterion.
 }
 \usage{
-\method{findBestBRAID}{default}(concs, act, defaults, startparv=NULL, llims=NULL,
+\method{findBestBRAID}{default}(model, data, defaults, startparv=NULL, llims=NULL,
 				ulims=NULL, itype=1, getCIs=TRUE, crossval=TRUE, ...)
-\method{findBestBRAID}{formula}(formula, data, ...)
+\method{findBestBRAID}{formula}(model, data, ...)
 }
 \arguments{
-  \item{concs}{ a two-column array containing concentrations of Drug 1 and Drug 2 in each dose pair }
-  \item{act}{ a vector of measurements of  response to the concentrations of Drug 1 and Drug 2 set down in \code{concs} }
-  \item{formula}{ a symbolic formula (e.g. \code{act ~ conc1+conc2}) specifying which variables are to be fit }
-  \item{data}{ a data frame containing the columns specified in \code{formula} }
+  \item{model}{ a two-column array containing concentrations of Drug 1 and Drug 2 in each dose pair, or a symbolic formula (e.g.
+\code{act ~ conc1+conc2}) specifying which variables are to be fit }
+  \item{data}{ if \code{model} is an array, a vector of measurements of  response to the concentrations of Drug 1 and Drug 2;
+if \code{model} is a formula, a data frame containing the columns specified in \code{formula} }
   \item{defaults}{ two-element vector specifying the default initial and maximal effects for the response surface.  These values
 will be used in several of the models that are tried (see Details below).}
   \item{startparv}{ an optional parameter specifying starting parameter values for the optimization }
