@@ -5,15 +5,15 @@
 Fitting Dose Response with the BRAID Combined Action Model
 }
 \description{
-This package provides functions necessary for evaluating, analyzing, and fitting combined action dose response surfaces with the
+Contains functions necessary for evaluating, analyzing, and fitting combined action dose response surfaces with the
 Bivariate Response to Additive Interacting Dose (BRAID) model of combined action.
 }
 \details{
 \tabular{ll}{
 Package: \tab braidrm\cr
 Type: \tab Package\cr
-Version: \tab 0.66\cr
-Date: \tab 2016-01-26\cr
+Version: \tab 0.71\cr
+Date: \tab 2016-03-07\cr
 License: \tab GPL (>= 3)\cr
 }
 A mathematical description of the BRAID surface model can be found in \code{\link{evalBRAIDrsm}}. The heart of the package is the
