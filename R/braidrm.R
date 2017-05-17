@@ -79,22 +79,38 @@ braidrm.formula <- function(model,data,...) {
 	bfit$call <- match.call()
 	return(bfit)
 }
-getBRAIDbootstrap <- function(bfit,ciLevs=c(0.025,0.975),numBoot=NULL) {
+getBRAIDbootstrap <- function(bfit,ciLevs=c(0.025,0.975),numBoot=NULL,parallel=TRUE,cl=NULL) {
 	if (class(bfit)!="braidrm") { stop("Input 'bfit' must be of class 'braidrm'.") }
 	if (!is.null(bfit$ciPass)) {
 		warning("Input already has bootstrapped coefficients (or has failed bootstrapping).")
 		return(bfit)
 	}
 	prcBootPass <- 0.5
-	if (is.null(numBoot)) { numBoot <- max(min(10/(1-ciLevs[2]+ciLevs[1]),1000),100) }
-	bCoefs <- array(coef(bfit),dim=c(1,length(coef(bfit))))
-	for (i in 1:numBoot) {
-		bact <- fitted(bfit) + sample(resid(bfit),length(resid(bfit)),replace=TRUE)
-		nls <- try(fitBRAIDrsm(bfit$conc1,bfit$conc2,bact,fixed=bfit$fixed,
-							def=coef(bfit),llims=bfit$mlims[1,],ulims=bfit$mlims[2,]),silent=TRUE)
-		if (class(nls)!="try-error" && nls$convergence==0 && !(TRUE %in% (is.infinite(nls$par) | is.nan(nls$par)))) {
-			cpar <- nls$fullpar[which(is.na(bfit$fixed))]
-			bCoefs <- rbind(bCoefs,array(cpar,dim=c(1,length(cpar))))
+	if (is.null(numBoot)) { numBoot <- round(max(min(10/(1-ciLevs[2]+ciLevs[1]),1000),100)) }
+	if (parallel && requireNamespace("boot",quietly=TRUE)) {
+		braidRefit <- function(resd,inds,bfit) {
+			bact <- fitted(bfit)+resd[inds]
+			nls <- try(braidrm:::fitBRAIDrsm(bfit$conc1,bfit$conc2,bact,fixed=bfit$fixed,
+									def=coef(bfit),llims=bfit$mlims[1,],ulims=bfit$mlims[2,]),silent=TRUE)
+			if (class(nls)!="try-error" && nls$convergence==0 && !(TRUE %in% (is.infinite(nls$par) | is.nan(nls$par)))) {
+				return(c(1,nls$fullpar[which(is.na(bfit$fixed))]))
+			} else {
+				return(rep(0,length(which(is.na(bfit$fixed)))+1))
+			}
+		}
+		btres <- boot::boot(resid(bfit),braidRefit,as.integer(numBoot),bfit=bfit,parallel=getOption("boot.parallel","snow"),
+								ncpus=getOption("boot.ncpus",max(parallel::detectCores()-1,1)),cl=cl)
+		bCoefs <- btres$t[btres$t[,1]==1,2:ncol(btres$t)]
+	} else {
+		bCoefs <- array(coef(bfit),dim=c(1,length(coef(bfit))))
+		for (i in 1:numBoot) {
+			bact <- fitted(bfit) + sample(resid(bfit),length(resid(bfit)),replace=TRUE)
+			nls <- try(fitBRAIDrsm(bfit$conc1,bfit$conc2,bact,fixed=bfit$fixed,
+								def=coef(bfit),llims=bfit$mlims[1,],ulims=bfit$mlims[2,]),silent=TRUE)
+			if (class(nls)!="try-error" && nls$convergence==0 && !(TRUE %in% (is.infinite(nls$par) | is.nan(nls$par)))) {
+				cpar <- nls$fullpar[which(is.na(bfit$fixed))]
+				bCoefs <- rbind(bCoefs,array(cpar,dim=c(1,length(cpar))))
+			}
 		}
 	}
 	nbfit <- bfit

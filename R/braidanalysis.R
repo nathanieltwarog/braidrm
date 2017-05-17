@@ -195,7 +195,7 @@ runBRAIDanalysis <- function(data,defaults,llims=NULL,ulims=NULL,itype=1,compoun
 	
 	
 	pdata <- wdata[wdata$conc1==0,]
-	if (nrow(ldata)>0) {
+	if (nrow(pdata)>0) {
 		if (!is.null(llims)) {
 			cllims <- llims[c(4,7,9,2)]
 			cllims[4] <- log(cllims[4])
