@@ -12,8 +12,8 @@ Bivariate Response to Additive Interacting Dose (BRAID) model of combined action
 \tabular{ll}{
 Package: \tab braidrm\cr
 Type: \tab Package\cr
-Version: \tab 0.71\cr
-Date: \tab 2016-03-07\cr
+Version: \tab 0.82\cr
+Date: \tab 2017-05-16\cr
 License: \tab GPL (>= 3)\cr
 }
 A mathematical description of the BRAID surface model can be found in \code{\link{evalBRAIDrsm}}. The heart of the package is the

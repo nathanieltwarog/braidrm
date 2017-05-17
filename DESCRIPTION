@@ -1,8 +1,8 @@
 Package: braidrm
 Type: Package
 Title: Fitting Dose Response with the BRAID Combined Action Model
-Version: 0.81
-Date: 2016-02-02
+Version: 0.82
+Date: 2017-05-16
 Author: Nathaniel R. Twarog
 Maintainer: Nathaniel R. Twarog <nathaniel.twarog@stjude.org>
 Depends: stats
