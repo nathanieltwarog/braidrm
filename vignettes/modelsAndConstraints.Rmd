@@ -1,0 +1,189 @@
+---
+title: "Setting BRAID Models and Constraints"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Setting BRAID Models and Constraints}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup, include=FALSE}
+library(braidrm)
+```
+
+## Basic Selections
+
+There are several ways to specify the space of possible BRAID models that a
+`braidrm` fitting function will consider when fitting to a given set of data.
+Briefly, there are two ways to constrain this space: by fixing parameters to
+be equal to a constant value to each other (thus reducing the dimensionality of
+the space of BRAID parameters), and by bounding the range of parameter values
+being considered, which keeps the same dimensionality but reduces the size of
+the available space.  BRAID fitting functions provide options for both.
+
+The simplest method for controlling the dimensionality of parameters is with 
+the three, named, pre-defined models.  Setting the `model` parameter of a 
+BRAID fitting function to one of `"kappa1"`, `"kappa2"` (the default), or
+`"kappa3"` will select a BRAID model in which potency, Hill slope, and
+interaction parameters are all allowed to vary freely, as well as the value of
+the minimal effect $E_0$.  The difference between the three named models is the
+space of possible maximal effect parameters: `"kappa1"` specifies a model in
+which all three maximal effect parameters are constrained to be equal to one
+another; `"kappa2"` allows the individual maximal effect parameters $E_{f,A}$
+and $E_{f,B}$ to vary independently but constrains the overall maximal effect
+parameter $E_f$ to be equal to the "larger" of the two; and `"kappa3"` allows
+all three to vary separately, thus allowing for an overall maximal effect
+greater than the individual maximal effects.  We can see this in action with
+the `synergisticExample` dataset:
+
+```{r}
+surface <- synergisticExample
+
+coef(braidrm(measure ~ concA + concB, surface, model="kappa1", getCIs=FALSE))
+coef(braidrm(measure ~ concA + concB, surface, model="kappa2", getCIs=FALSE))
+coef(braidrm(measure ~ concA + concB, surface, model="kappa3", getCIs=FALSE))
+```
+
+Note that while the third model *allows* the maximal effect parameter $E_f$ to
+differ, in this case (and in many cases) the best fitting surface is still one in
+which $E_f$ is equal to one of the individual maximal effects.
+
+## Precise Model Selection
+
+In some cases, the user may wish to consider models beyond the basic three. The
+`model` parameter can therefore pick out explicitly which parameters should be
+varied freely while fitting.  If `model` is a numeric vector containing a subset
+of the indices 1 through 9, all indices that are included will be allowed to
+vary during fitting, and those that are not included will be fixed. For
+example:
+
+```{r}
+startingParameter <- c(2,2,2,2,0,0,1,1,1)
+
+bfit <- braidrm(measure ~ concA + concB, surface,
+				model=c(1,3,5,6,7,8), start=startingParameter,
+				getCIs=FALSE)
+coef(bfit)
+
+bfit <- braidrm(measure ~ concA + concB, surface,
+				model=c(1,2,5,6,9), start=startingParameter,
+				getCIs=FALSE)
+coef(bfit)
+```
+
+In the first example, parameters 2 and 4 (${ID}_{M,B}$ and $n_b$) are absent 
+from the model vector, so they are fixed at the value of the starting parameter.
+(When leaving any of the first six parameters fixed, it is always best to
+provide an explicit starting vector to ensure that the fixed values are
+sensible.  BRAID fitting functions will try to automatically generate a
+starting vector, but such values are not guaranteed to be near what the user
+wants.)  In the second example, it is parameters 3 and 4 (the two Hill slopes)
+which have been omitted, so they are held constant at the given starting value.
+Note however, that while parameter 9 ($E_f$) is absent from the first example,
+and parameters 7 and 8 ($E_{f,A}$ and $E_{f,B}$) are absent from the second, 
+they are *not* set equal to the values of the starting parameter.  That is
+because the maximal effect parameters are handled differently from the other
+six.
+
+## Maximal Effect Links
+
+While the first six BRAID parameters can either vary freely or be fixed at
+a constant, the maximal effect parameters $E_{f,A}$, $E_{f,B}$ and $E_f$ behave
+a little differently.  This is because there are many cases where it is less
+useful to fix them at a constant value than it is to fix them equal to
+*each other*.  For example, while it is possible that one might want to fit a
+BRAID surface where the individual maximal effect parameters $E_{f,A}$ and 
+$E_{f,B}$ are fixed a constant 50% efficacy but the overall maximal effect $E_f$
+could be anything (and BRAID fitting functions *can* support that), it is much
+more likely that one would want to fit a surface where all three maximal effect
+parameters are held equal to one another.  Both circumstances involve $E_f$
+varying freely, and the individual maximal effects being constrained, so how
+do we distinguish between the two?  This is done with the `links` parameter.
+
+`links` picks out several scenarios in which BRAID parameters are not varying
+freely, but are held equal to each other in one way or another.  It is a
+character string with one of the following values:
+
+* `"AB"`: Both individual maximal effect parameters $E_{f,A}$ and $E_{f,B}$ are
+held equal to the maximal effect parameter $E_f$.  Thus index 9 must be present
+in the model vector, and indices 7 and 8 must be absent.
+* `"A"`: $E_{f,A}$ must be equal to the overall maximal effect $E_f$. Index 9
+must be present in the model vector and index 7 must be absent; if index 8 
+($E_{f,B}$) is absent, it will be held at a constant starting value.
+* `"B"`: $E_{f,B}$ must be equal to the overall maximal effect $E_f$. Index 9
+must be present in the model vector and index 8 must be absent; if index 7 
+($E_{f,A}$) is absent, it will be held at a constant starting value.
+* `"F"`: The overall maximal effect parameter $E_f$ is constrained to be equal
+to the larger of the two individual maximal effect parameters. Index 9 must be
+absent from the model vector, and one or both of 7 and 8 must be present.
+* `""` (the empty sting): There are no links between parameters. Any parameter
+indices which are absent result in the corresponding parameter being held 
+constant at the starting value.
+
+Note that none of these value is marked as a default.  That is because, when
+left unspecified, `links` is chosen by the BRAID fitting function based on the
+parameters included in `model`.  Models containing all or none of the maximal
+effect parameters assume a `links` value of `""`; models containing one or both
+of 7 and 8 ($E_{f,A}$ and $E_{f,B}$) but not 9 ($E_f$) assume a `links` value
+of `"F"`; and models containing parameter 9 but neither of 7 or 8 assume a 
+`links` value of `"AB"`. It has been our experience that these defaults are
+desired in the vast majority of cases.
+
+## Parameter Bounds
+
+Even in cases where a parameter should be fit and determined from the data, it
+is often desirable to place certain boundaries on the value of that parameter.
+The user may wish to ensure that predicted drug effects never drop below 0,
+or that the dose of median effect of a drug is held to a known range of values.
+This is accomplished using the `lower` and `upper` parameters.  If included, 
+these numeric parameters contain a vector of values specifying the lowest or
+highest a given parameter may go.  They can be full length-9, or the same length
+as the relevant model vector, in which case they will be mapped to the correct
+freely varying parameter in the model.  For example:
+
+```{r}
+bfit <- braidrm(measure ~ concA + concB, surface,
+				model=c(1:5,6,7,8), start=startingParameter,
+				upper = c(0.75,0.75,NA,NA,NA,NA,0.7,NA,NA),
+				getCIs=FALSE)
+coef(bfit)
+
+bfit <- braidrm(measure ~ concA + concB, surface,
+				model=c(1:5,6,9), start=startingParameter,
+				lower = c(NA,NA,3,3,NA,0,0),
+				getCIs=FALSE)
+coef(bfit)
+```
+
+In the first example, `upper` is a length 9 vector, specifying that parameters 1
+and 2 (${ID}_{M,A}$ and ${ID}_{M,B}$) cannot go higher than 0.75, and that
+parameter 7 ($E_{f,A}$) cannot go higher than 0.7.  In the second, `lower` is
+the same length as `model`, so its values correspond to just those indices. The
+third and fourth model parameters (which are 3 and 4, $n_a$ and $n_b$) can go
+no lower than 3; whereas the sixth and seventh model parameters (6 and 9, so
+$E_0$ and $E_f$) can go no lower than 0.  And indeed the best fit vectors in
+both cases abide by these constraints.
+
+## Direction Constraint
+
+The parameters that tend to be bounded most often are the minimal and maximal
+effect parameters, as these are often real-world measurable quantities with
+natural constraints on them.  BRAID fitting functions also offer one additional
+boundary to place on these parameters.  The `direction` parameter can specify
+that BRAID fitting functions should only consider models that change in one
+particular direction.  Setting the parameter to $1$ indicates that considered
+models should always be *increasing*, so the maximal effect parameters must be
+numerically greater than or equal to than the minimal effect parameter.  Setting
+`direction` to $-1$ indicates the opposite, that the maximal effect parameters
+considered must always be numerically less than or equal to the minimal effect
+parameter.  Setting `direction` equal to 0 (the default) will consider surfaces
+changing in either direction.  This can be particularly important when fitting
+a large number of related surfaces that you wish to compare, as having surfaces
+that change effect in opposite directions can make analysis much more complex.

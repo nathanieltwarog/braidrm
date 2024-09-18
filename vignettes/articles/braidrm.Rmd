@@ -1,0 +1,314 @@
+---
+title: "braidrm: Package Introduction"
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup, include=FALSE}
+library(braidrm)
+library(braidReports)
+library(tidyverse)
+```
+
+## Introduction
+
+This package contains most of the essential code for fitting and evaluating
+response surfaces of the Bivariate Response to Additive Interacting Doses,
+or BRAID, model.  This article walks through some of the most basic
+functionality of the package, including evaluating, inverting, and fitting
+BRAID response surfaces.  Further details, exceptions and functions can be
+explored in other vignettes. *Note: this package makes use of both the*
+`braidReports` *package for visualization and the* `tidyverse` *package to*
+*make the code more easily readable. Neither is a required dependency of the*
+`braidrm` *package, though* `braidReports` *is strongly suggested.*
+
+## The BRAID Model {-}
+
+The BRAID model is a parametric model of combined action, which draws its
+inspiration (and mathematical form) from the Hill single-agent dose response
+model, also often, known as the log-logistic function:
+
+$$
+E(D) = E_0 + \frac{E_f - E_0}{1 + \left(\frac{D}{{ID}_M}\right)^{-n}}
+$$
+
+In this equation, $D$ is the dose of the compound or agent in question;
+${ID}_M$ is the dose of median effect (sometimes referred to as the $EC_{50}$);
+$n$ is the "Hill slope" or "sigmoidicity" (reflecting how quickly the agent
+goes from low effects to high effects as a function of concentration/dose);
+$E_0$ is the minimal effect, expected when no agent is present; $E_f$ is the
+maximal effect, the asymptotic level expected when the agent is present at
+very high concentrations; and $E(D)$ is the predicted effect of the specified
+dose according to the model.
+
+In the BRAID model, we have two agents (call them A and B), so we assume that
+their individual dose response behaviors are reprsented by the following
+equations:
+
+$$
+{E_A}(D_A) = E_0 + \frac{E_{f,A} - E_0}{1 + \left(\frac{D}{{ID}_{M,A}}\right)^{-n_a}}
+$$
+
+$$
+{E_B}(D_B) = E_0 + \frac{E_{f,B} - E_0}{1 + \left(\frac{D}{{ID}_{M,B}}\right)^{-n_b}}
+$$
+
+Note that both models use the same parameter $E_0$, as the expected effect when
+neither drug is present should be the same.  The BRAID model merges these two
+individual behaviors into a single parametric model.  A full treatment of the
+equation can be found in `vignette("derivation")`, but a simpler version
+(in which the Hill slopes and maximal effects of the drugs are assumed to be
+equal) can be written as:
+
+$$
+E(D_A,D_B) = E_0 + \frac{E_f - E_0}{1+\left(\frac{D}{{ID}_{M,A}} + \frac{D}{{ID}_{M,B}} + \kappa\sqrt{\frac{D}{{ID}_{M,A}}\frac{D}{{ID}_{M,B}}}\right)^{-n}}
+$$
+
+The BRAID model adds a single additional parameter beyond the individual dose
+response parameters of the two drugs: the Greek letter $\kappa$, representing
+the degree of synergy or antagonism.  When $\kappa=0$, the two doses add
+together, behaving as though they were diluted doses of the same drug; this is
+classical notion of Loewe additivity.  When $\kappa>0$, if both drugs are 
+present, the effective dose is increased above simple addition, the effect is
+higher, and the combination exhibits synergy.  When $\kappa<0$, if both drugs
+are prsent, the effective dose is *decreased* below simple addition, the effect
+is reduced, and the combination ehxibits antagonism.  As $\kappa$ goes higher
+(theoretically to infinity), the degree of synergy increases; as $\kappa$ goes
+lower (to a minimum of $-2$), the degree of antagonism increases.
+
+## BRAID Surface Examples {-}
+
+We can build an example surface using the function `evalBraidModel()`.  The 
+following code creates a parameter vector where ${ID}_{M,A} = {ID}_{M,B} = 1$, 
+$n_a = n_b = 3$, $E_0 = 0$, $E_{f,A} = E_{f,B} = E_f = 1$, and $\kappa = 0$ 
+(indicating an additive surface), and then generates a response surface for that
+parameter vector.
+
+```{r}
+additivePar <- c(
+	1, # IDMA
+	1, # IDMB
+	3, # na
+	3, # nb
+	0, # kappa
+	0, # E0
+	1, # EfA
+	1, # EfB
+	1  # Ef
+)
+
+concentrations <- seq(0,3,length=51)
+surface <- expand_grid(concA=concentrations, concB=concentrations) %>%
+	mutate(additive = evalBraidModel(concA,concB,additivePar))
+
+ggplot(surface,aes(x=concA,y=concB)) +
+	geom_raster(aes(fill=additive)) +
+	scale_fill_distiller(palette="RdYlBu",direction=-1) +
+	geom_contour(aes(z=additive),breaks=seq(0.1,0.9,by=0.1),
+				 colour="black",linetype=2)+
+	labs(x="Concentration A",
+		 y="Concentration B",
+		 fill="Effect",
+		 title="Additive Surface")+
+	coord_equal()
+```
+
+Another view of the surface can be given by taking slices through the surface at
+different levels of one of the drugs.  For example:
+
+```{r}
+samples <- c(0,0.5,0.75,0.9,1,1.11,1.33,2)
+
+lines <- expand_grid(concA=concentrations,concB=samples) %>%
+	mutate(additive=evalBraidModel(concA,concB,additivePar))
+
+ggplot(lines,aes(x=concA,y=additive))+
+	geom_line(aes(color=factor(concB)))+
+	labs(x="Concentration A",y="Effect",color="Drug B")
+
+```
+
+Changing the BRAID interaction parameter $\kappa$ leaves the individual dose
+response behaviors alone, but alters the way they interact when both are 
+present. Note the effect on the contours of the response surface resulting
+from positive and negative $\kappa$ values.
+
+```{r}
+synergisticPar <- c(
+	1, 1, 3, 3,
+	2, # kappa > 0 indicates synergy
+	0, 1, 1, 1 
+)
+antagonisticPar <- c(
+	1, 1, 3, 3,
+	-1, # kappa < 0 indicates antagonism
+	0, 1, 1, 1 
+)
+
+surface <- surface %>%
+	mutate(synergy = evalBraidModel(concA,concB,synergisticPar),
+		   antagonism = evalBraidModel(concA,concB,antagonisticPar))
+
+ggplot(surface,aes(x=concA,y=concB)) +
+	geom_raster(aes(fill=synergy)) +
+	scale_fill_distiller(palette="RdYlBu",direction=-1) +
+	geom_contour(aes(z=synergy),breaks=seq(0.1,0.9,by=0.1),
+				 colour="black",linetype=2)+
+	labs(x="Concentration A",
+		 y="Concentration B",
+		 fill="Effect",
+		 title="Synergistic Surface")+
+	coord_equal()
+
+ggplot(surface,aes(x=concA,y=concB)) +
+	geom_raster(aes(fill=antagonism)) +
+	scale_fill_distiller(palette="RdYlBu",direction=-1) +
+	geom_contour(aes(z=antagonism),breaks=seq(0.1,0.9,by=0.1),
+				 colour="black",linetype=2)+
+	labs(x="Concentration A",
+		 y="Concentration B",
+		 fill="Effect",
+		 title="Antagonistic Surface")+
+	coord_equal()
+
+```
+
+## Fitting BRAID Surfaces to Data {-}
+
+``` {r, include=FALSE}
+set.seed(20240730)
+```
+
+Of course the primary use of the BRAID model, like the Hill model that inspired
+it, is to fit (and hence parametrically summarize) experimentally measured data.
+For simplicity, we will generate some artificial combination data with a 
+moderately synergistic combination.
+
+```{r, warning=FALSE}
+measurements <- synergisticExample
+
+ggplot(measurements,aes(x=concA,y=concB)) +
+	geom_braid(aes(fill=measure))+
+	scale_fill_distiller(palette="RdYlBu",direction=-1) +
+	scale_x_log10()+
+	scale_y_log10()+
+	labs(x="Concentration A",
+		 y="Concentration B",
+		 fill="Effect",
+		 title="Measured Surface")+
+	coord_equal()
+```
+
+The simplest way to fit a BRAID model to data is with the `braidrm()` function:
+
+```{r}
+braidFit <- braidrm(measure ~ concA + concB, measurements,
+					model="kappa2", getCIs=FALSE)
+
+summary(braidFit)
+```
+
+This "formula" usage of `braidrm()` indicates that we should take our values 
+from the data frame `measurements`, and that the response surface to be fit
+has the column `measured` containing the modeled effect as a function of
+concentrations in `concA` and `concB`.  The value "kappa2" for the parameter
+`model` is the default value, and indicates we should fit a standard 8-parameter
+BRAID surface in which the two parameters $E_{f,A}$ and $E_{f,B}$ are both fit
+and may differ from each other. (Setting the parameter `getCIs` to `FALSE` just
+indicates that we do not want to calculate confidence intervals yet.)
+
+Plotting the fitted model we can see that it matches the original data quite
+closely:
+
+```{r, warning=FALSE}
+measurements <- measurements %>%
+	mutate(fit = fitted(braidFit))
+
+ggplot(measurements,aes(x=concA,y=concB)) +
+	geom_braid(aes(fill=fit))+
+	scale_fill_distiller(palette="RdYlBu",direction=-1) +
+	scale_x_log10()+
+	scale_y_log10()+
+	labs(x="Concentration A",
+		 y="Concentration B",
+		 fill="Effect",
+		 title="Measured Surface")+
+	coord_equal()
+
+r2 <- signif(cor(measurements$fit,measurements$measure)^2,3)
+ggplot(measurements,aes(x=fit,y=measure)) +
+	geom_abline(color="red")+
+	geom_linerange(aes(ymin=fit,ymax=measure),linetype=2)+
+	geom_point()+
+	labs(x="Predicted",
+		 y="Measured",
+		 title=sprintf("R\u00B2 = %s",r2))+
+	coord_equal()
+```
+
+Another useful function for fitting BRAID surfaces is `findBestBraid()`, which
+tries several different candidate BRAID models and selects the optimal model 
+using the Bayesian or Akaike information critieria.  These candidate models
+differ in how they treat the minimal and maximal effects, fixing them at
+constant default values or equal to each other in some models and letting them 
+vary freely in others.  Here we see an example usage of the function in which
+the minimal effect default is very close to the best fit, but the default 
+maximal effect is not.
+
+```{r}
+bestFit <- findBestBraid(measure ~ concA + concB, measurements,
+						 defaults = c(0,2), getCIs = TRUE)
+
+summary(bestFit)
+```
+
+The summary of the object `bestFit` contains a matrix of bootstrapped
+confidence intervals on all the parameters allowed to vary freely in the best
+fitting model.  As $E_0$ CI values are `NA` in this array, we know that the best
+(read: most parsimonious) model allowed $E_0$ to be fixed at the default value
+of 0.  The parameter $E_f$ *is* included, but the parameters $E_{f,A}$ and 
+$E_{f,B}$ are not, indicating that the model fixed all maximal effect parameters
+equal to a single value and allowed that value to vary (being fit, in this case,
+very close to 1).  See the documentation of `findBestBraid()` for more details
+on the candidate models and their meaning.
+
+## Inverting a BRAID Model {-}
+
+One last operation that is commonly needed with a response surface is to
+determine how much of one drug is required to produce a desired effect in the
+presence of another; this amount is sometimes referred to as an inhibitory
+concentration (IC) or inhibitory dose (ID).  For consistency, we will use IC to
+describe such values.  So the concentration required to have a 75% complete 
+effect might be referred to as the ${IC}_{75}$. This can be calculated from a
+BRAID surface using the function `invertBraidModel()`.
+
+```{r}
+
+bestPar <- coef(bestFit)
+
+baselineIcValues <- invertBraidModel(DB=0,
+									 effect=seq(0.1,0.9,by=0.1),
+									 bpar=bestPar)
+alteredIcValues <- invertBraidModel(DB=1,
+									effect=seq(0.1,0.9,by=0.1),
+									bpar=bestPar)
+
+names(baselineIcValues) <- paste0("IC",seq(10,90,by=10))
+names(alteredIcValues) <- paste0("IC",seq(10,90,by=10))
+
+baselineIcValues
+alteredIcValues
+```
+
+From these we see that for the best fit BRAID surface, most of the
+concentrations required to produce given effects lie close to 1, typical of a 
+dose response behavior with a relatively high Hill slope.  However, in the
+presence of a dose of 1 unit of agent B, the IC values are drastically reduced
+falling to 0 for 10, 20, 30, and 40% (as 1 unit of agent B alone produces
+over 40% effect), but also dropping significantly for other effect levels
+due to synergy, including a nearly five-fold reduction in ${IC}_{90}$.

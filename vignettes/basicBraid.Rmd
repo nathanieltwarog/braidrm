@@ -1,0 +1,227 @@
+---
+title: "Basic BRAID Usage"
+output: rmarkdown::html_vignette
+bibliography: "braid.bib"
+vignette: >
+  %\VignetteIndexEntry{Basic BRAID Usage}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup, include=FALSE}
+library(braidrm)
+```
+
+## The BRAID Model
+
+The bivariate response to additive interacting doses (or BRAID) model is a 
+parametric response surface model of the effect of combined doses of two
+agents.  A full specification of the BRAID equation can be found in 
+`vignette("derivation")`, but briefly, the BRAID model is specified by 9
+parameters: a baseline minimal effect observed when no agent is present, three
+dose response parameters for each agent, an overall maximal effect parameter,
+and an interaction paramter $\kappa$ indicating the presence of a synergistic
+or antagonistic interaction.
+
+In the functions of the `braidrm` package, BRAID surfaces are specified by a 
+numeric parameter vector.  For a full, length-9 parameter vector, the values 
+are the following
+
+* `IDMA`: The dose of median effect of the first agent
+* `IDMB`: The dose of median effect of the second agent
+* `na`: The Hill slope (or sigmoidicity) of the first agent
+* `nb`: The Hill slope (or sigmoidicity) of the second agent
+* `kappa`: The BRAID interaction parameter, which is between -2 and 0 for
+antagonistic surfaces, 0 for BRAID additive surfaces, and greater than 0 for
+synergistic surfaces
+* `E0`: The minimal effect observed when neither agent is present
+* `EfA`: The maximal effect of the first agent, theoretically observed at 
+infinite concentration
+* `EfB`: The maximal effect of the second agent, theoretically observed at
+infinite concentration
+* `Ef`: The overall maximal effect of the combination
+
+The order of these parameters is meant to mirror the order of single-agent 
+dose-response parameters in the `basicdrm` package: "potency" parameters,
+"shape" parameters (including interaction), minimal effect, maximal effects.
+
+In many cases, the response surface being modeled or studied will only need a
+subset of these parameters.  Nearly all combination analyses assume (implicitly
+or explicitly) that the overall maximal effect of a combination (the parameter
+$E_f$) will be equal to the "larger" of the two individual maximal effects. (We
+place "larger" in quotes here is it refers to the effect value that is further 
+from the minimal effect, but not necssarily the numerically greater value.) In
+some cases, it is even assumed that all maximal effects are simply equal to 
+each other.  For simplicity, many `braidrm` functions support shortened BRAID
+parameter vectors that carry these assumptions.  If a BRAID parameter vector
+with *eight* values is passed to a `braidrm` function, it is assumed that the
+ninth parameter `Ef` has been left out, and the it should be equal to the
+"larger" of the two individual maximal effects.  If a BRAID paramter vector
+with *seven* values is passed, it is assumed that parameters `EfA` and `EfB`
+have been leftout, and that they are both equal to the seventh value (assumed
+to be `Ef`).
+
+## Evaluate BRAID Surfaces
+
+Creating a BRAID parameter vector is as simple as creating a numeric vector:
+
+```{r}
+basicParameter <- c(1, 1, 3, 3, 0, 0, 100)
+```
+
+This vector specifies, in order, that:
+
+* The dose of median effect of drug A is 1 (the units are not specified, but
+for this vignette we'll assume they are micromolar)
+* The dose of median effect of drug B is 1
+* The Hill slope of drug A is 3
+* The Hill slope of drug B is 3
+* The interaction parameter $\kappa$ is 0 (additivity)
+* The minimal effect is 0
+* The overall maximal effect is 100
+
+Because this vector is length seven, parameters `EfA` and `EfB` are implied and
+assumed to be equal to `Ef`.  We could specify exactly the same surface with a
+full-length parameter vector:
+
+```{r}
+fullParameter <- c(1, 1, 3, 3, 0, 0, 100, 100, 100)
+```
+
+Evaluating a BRAID surface requires the concentration  or concentrations of the
+first drug, the concentration or concentrations of the second, and the BRAID
+parameter vector. For example:
+
+```{r}
+evalBraidModel(1, 0, basicParameter)
+evalBraidModel(0, 1, basicParameter)
+evalBraidModel(1, 1, basicParameter)
+```
+
+The first two outputs demonstrate that, as expected, when either drug is
+present at 1 micromolar, we observe an effect of 50, halfway between the
+minimal effect and the maximal effect.  The third output is noticeably higher,
+as when *both* drugs are present at 1 micromolar, the effect of the individual
+doses is compounded.  We can however produce the same effect as 1 micromolar
+of either drug alone by halving their doses:
+
+```{r}
+evalBraidModel(0.5, 0.5, basicParameter)
+```
+
+This is because the parameter vector represents an additive combination of two
+drugs with identical pharmacological properties. (Note that this does not work
+for all response surfaces, or even all BRAID additive surfaces. It is only in
+the case of identical Hill slopes and maximal effects that BRAID additivity 
+aligns perfectly with the more classical Loewe additivity.) [@Loewe1926]
+
+We can also see that using the full, length-9 parameter vector produces exactly
+the same results:
+
+```{r}
+evalBraidModel(1, 0, fullParameter)
+evalBraidModel(0, 1, fullParameter)
+evalBraidModel(0.5, 0.5, fullParameter)
+```
+
+Note what happens, however, when we introduce an interaction to the response
+surface (in this case, as $\kappa$ is positive, a synergistic interaction):
+
+```{r}
+synergyParameter <- c(1, 1, 3, 3, 1.5, 0, 100)
+
+evalBraidModel(1, 0, synergyParameter)
+evalBraidModel(0, 1, synergyParameter)
+evalBraidModel(0.5, 0.5, synergyParameter)
+```
+
+While the effect of the individual drugs is unchanged, their combined effect is
+increased.  This is the classic pharmacological definition of synergy: an effect
+in combination which is larger *than what would be expected*.  What precisely
+is "expected" for any given pair of drugs is one of the primary debates of
+combination analysis; BRAID additivity is only one answer, albeit the one around
+which we have built the BRAID system.
+
+## Fitting BRAID Surfaces
+
+```{r, include=FALSE}
+set.seed(20240804)
+```
+
+Of course, the most common usage of the BRAID model is fitting it to
+experimental data to summarize and quantify that data.  The main workhorse
+function for this task is `braidrm`, which produces a fit object of class
+`braidrm`.  We can see it in action with the example data-set 
+`additiveExample`:
+
+```{r}
+head(additiveExample)
+additiveFit <- braidrm(measure ~ concA + concB, additiveExample)
+summary(additiveFit)
+```
+
+The data frame `additiveExample` is a synthetically generated set of response
+surface measurements, and contains four columns: `concA`, containing the dose
+of drug A for each measurement; `concB`, containing the dose of drug B for
+each measurement; `truth` containing the ground truth response generated by
+an additive response surface with effect ranging from 0 to 1; and `measure`, a
+noisy measurement sampled from a normal distribution centered on the ground
+truth with a standard deviation of 0.07.  By default, `braidrm()` fits an
+eight-paramter BRAID surface (one which assumes the overall maximal effect is
+equal to the larger of the two individual maximal effects) to the given data
+with a moderate prior on the interaction parameter $\kappa$.  (See 
+`vignette("modelsAndConstraints")` for more details on specifying the BRAID
+model to be fit, and `vignette("bayesianKappa")` for a more in-depth 
+explanation of the Bayesian stabilization of $\kappa$).  By default `braidrm()`
+also estimates bootstrapped confidence intervals on all fit parameters, as can
+be seen the printed summary; note in particular that 0 lies within the
+confidence interval on $\kappa$, indicating no statistically significant
+deviation from BRAID additivity.  (Estimating confidence intervals can take
+several seconds; so if you are running many fits and do not need the confidence
+intervals, you can forgo them by setting the parameter `getCIs` to `FALSE`.)
+
+We get a very different result, however, when we fit the example data-set
+`synergisticExample`, which has the same format as `additiveExample` but was
+generated with a synergistic parameter vector with a $\kappa$ of 2:
+
+```{r}
+synergisticFit <- braidrm(measure ~ concA + concB, synergisticExample)
+summary(synergisticFit)
+```
+
+Though most of the parameter estimates are very similar (indeed the generating
+parameter vectors are identical except for $\kappa$), the confidence interval
+on $\kappa$ lies well above zero, centered quite close the true value of 2.
+
+Another useful fitting function is `findBestBraid()`, which uses the Bayesian
+or Akaike information criterion to select among several candidate models (again,
+see `vignette("modelsAndConstraints")` for more details) 
+[@Schwarz1978, @Akaike1974].  This allows the user
+to stabilize underdetermined values to reasonable defaults and reduces the
+frequency of wildly implausible over-fitting.  We have run the function on 
+`antagonisticExample`, which, as the name implies, contains a synthetically
+generated set of response surface measurements taken on an antagonistic
+response surface with a true $\kappa$ of $-1$. The usage of `findBestBraid()`
+is very similar to that of `braidrm()`:
+
+```{r}
+bestFit <- findBestBraid(measure ~ concA + concB, antagonisticExample,
+						 defaults = c(0,1))
+summary(bestFit)
+```
+
+The `defaults` parameter here indicates that, absent any other evidence, we
+expect the minimal effect to 0 and the maximal effects to be 1, so simpler
+models that assume these fixed values and explain the data equally well should
+be preferred.  This time the confidence interval on $\kappa$ lies well below
+zero and comfortably encloses the true value of $-1$.  No confidence intervals
+on either minimal or maximal effects are included, indicating that the most
+parsimonious model was one which fixed `E0` at 0 and the three maximal effects
+at the default 1.

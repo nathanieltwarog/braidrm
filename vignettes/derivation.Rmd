@@ -1,0 +1,180 @@
+---
+title: "Derivation of the BRAID Model"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Derivation of the BRAID Model}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup, include=FALSE}
+library(braidrm)
+```
+
+## Background: The Hill Equation
+
+The Hill model of dose-response, also known as the log-logistic function, is
+one of the most widely used mathematical tools in the analysis of
+pharmacodynamics.  Though there are many, many cases in which the model falls
+short, its popularity derives from the balance it strikes between simplicity
+and versatility.  Its four parameters - potency, sensitivity, minimal effect,
+and maximal effect - are easily understood and all carry intuitive
+pharmacological relevance.  So when we set out to develop a similar model for
+combined action, we chose to make the Hill model its basis, both in form and in
+the behavior of drugs individually.
+
+We therefore set ourselves the following criteria:
+
+* The model should simplify to traditional Hill dose-response behaviors when
+one of the drugs was absent
+* The model should, like Loewe additive surfaces, satisfy the condition that the
+same agent combined with itelf (perhaps at different dilutions) always be
+represented by a non-interacting "additive" surface
+* The model should allow the maximal effects of the two drugs to differ
+* The model should inlclude at least one parameter governing the nature and
+magnitude of interaction
+
+## First Steps: The Assumptions
+
+We will suppose that our model will be reprsented by a function $E(D_A,D_B)$.
+Our first condition states that the following must be true:
+
+$$
+E(D_A,0) = E_A(D_A) = E_0 + \frac{E_{f,A}-E_0}{1+\left(\frac{D_A}{{ID}_{M,A}}\right)^{-n_a}}
+$$
+$$
+E(0,D_B) = E_B(D_B) = E_0 + \frac{E_{f,B}-E_0}{1+\left(\frac{D_B}{{ID}_{M,B}}\right)^{-n_b}}
+$$
+
+Our second assumption (additivity for the sham combination of a single compound
+with itself at a different dilution) can be expressed mathematically.  Suppose
+that "drug A" is actually a single drug diluted by a factor $R_A$ (so the
+concentration of the actual drug is $R_AD_A$); similarly, "drug B" is the same
+drug diluted by a factor $R_B$.  Then the does of median effect of our first
+"drug" is simply ${ID}_{M,A}={ID}_M/R_A$, where ${ID}_M$ is the true dose of
+median effect; and the dose of median effect for our second "drug" is 
+${ID}_{M,B}={ID}_M/R_B$.  (Obviously the Hill slopes and maximal effects will
+all equal.)  In this particular case then, we have that:
+
+$$
+E(D_A,D_B) = E_0 + \frac{E_f-E_0}{1+\left(\frac{R_AD_A+R_BD_B}{{ID}_M}\right)^{-n}}
+$$
+This can be rewritten as:
+
+$$
+E(D_A,D_B) = E_0 + \frac{E_f-E_0}{1+\left(\frac{R_AD_A}{{ID}_M}+\frac{R_BD_B}{{ID}_M}\right)^{-n}}
+= E_0 + \frac{E_f-E_0}{1+\left(\frac{D_A}{{ID}_{M,A}}+\frac{D_B}{{ID}_{M,B}}\right)^{-n}}
+$$
+
+Which is the closed-form expression for a Loewe additive combination of
+compounds with identical maximal effects and Hill slopes.
+
+## Generalizing
+
+The equation above only applies to a very narrow set of circumstances in which
+the two compounds being combined are basically pharmacologically identical.
+Indeed, it is a well known result that there is *no closed-form expression* for
+a general Loewe additive surface.  In order to generate the BRAID model, we must
+generalize this expression to work with other compound behaviors.
+
+The form of the Loewe additive sham combination can be described as a
+traditional Hill equation, but with the dose of the single drug replaced with
+a weighted sum of the two doses present.  In a much more general sense, the
+equation for an additive combination takes this form:
+
+$$
+E(D_A,D_B) = E_0 + \frac{E_f-E_0}{1+\left(g_A(D_A)+g_B(D_B)\right)^{-n}}
+$$
+
+where $g_A(D_A)$ is a "sensible" function of $D_A$, and $g_B(D_B)$ is a
+"sensible" function $D_B$.  In this case, by "sensible", we simply mean that it
+behaves like a rescaled or transformed dose, so $g_A(D_A)$ is not affected by
+$D_B$, $g_A(0)=0$, and as $D_A$ increases, so does $g_A(D_A)$ (that is, $g_A$
+is monotonically increasing). Clearly the equation we derived for the sham
+combination satisfies these assumption, but hopefully an equation that works
+for more general combinations can be found as well.
+
+Of course, we want our model to support interaction as well.  Traditionally, 
+to introduce interaction to an additive combination, one adds a product term
+with a coefficient governing the sign and magnitude of the interaction; so
+$A+B$ would be come $A+B+\alpha AB$.  This causes very serious problems for
+combined doses; though we do wish them to behave additively, the doses can never
+be less than 0. Unfortunately, the expression $A+B+\alpha AB$ will *always* become
+negative for certain non-negative pairs $(A,B)$ if alpha is any value less than
+zero, meaning this method would not allow us to generate reduced effective doses;
+in short, the model could not include antagonism.  Since antagonism is clearly
+an observed phenonemon, this is insufficient.  Fortunately, the problem can
+be side stepped by using a square-root interaction: $A + B + \kappa\sqrt{AB}$.
+So long as $A\ge 0$, $B \ge 0$ and $\kappa \ge -2$, this quantity will always
+be non-negative.
+
+So now we have a proposed structure for our genaral combined model:
+
+$$
+E(D_A,D_B) = E_0 + \frac{E_f-E_0}{1+\left(g_A(D_A)+g_B(D_B) + \kappa\sqrt{g_A(D_A)g_B(D_B)}\right)^{-n}}
+$$
+
+Surprisingly, this is enough to almost completely define our model.  Setting
+$D_A$ or $D_B$ to zero and using our original assumptions allows us to
+conclude that
+
+$$
+g_A(D_A) = \left( \frac{\left(\frac{E_{f,A}-E_0}{E_f-E_0}\right)\left(\frac{D_A}{{ID}_{M,A}}\right)^{n_a}}
+{1+\left(1-\frac{E_{f,A}-E_0}{E_f-E_0}\right)\left(\frac{D_A}{{ID}_{M,A}}\right)^{n_a}} \right)^\frac{1}{n}
+$$
+$$
+g_B(D_B) = \left( \frac{\left(\frac{E_{f,B}-E_0}{E_f-E_0}\right)\left(\frac{D_B}{{ID}_{M,B}}\right)^{n_b}}
+{1+\left(1-\frac{E_{f,B}-E_0}{E_f-E_0}\right)\left(\frac{D_B}{{ID}_{M,B}}\right)^{n_b}} \right)^\frac{1}{n}
+$$
+
+In the event that the overall maximal effect parameter $E_f$ is equal to one or
+both of the individual maximal effect parameters, the corresponding expressions
+for $g_A$ and/or $g_B$ simplifies considerably; but the BRAID package supports
+the option of an even higher overall maximal effect, so this parameter $E_f$ is 
+treated as an additional parameter of the model.
+
+One value that is not treated as a further parameter is the "overall" Hill slope,
+written here as $n$.  We have found little value in varying this parameter 
+independently, so it is assumed to be an aggregate of the two Hill slopes. In
+order to be consistent with the sham experiment, it must simplify to be equal to
+the two individual Hill slopes when they are equal, so an average would seem to
+be most sensible.  However, as Hill slopes are strictly greater than zero, and
+tend to distribute themselves in a log-normal fashion, a sligthly more
+reasonable choice is the geometric mean of the two Hill slopes.  So the BRAID
+model assumes that $n = \sqrt{n_a n_b}$.
+
+## The Final Model
+
+Putting all this together, we end up with the full BRAID model in its current
+form:
+
+$$
+E(D_A,D_B) = E_0 + \frac{E_f - E_0}{1+\left(\mathbb{D}_A^{1/n} + 
+\mathbb{D}_B^{1/n} + \kappa\sqrt{\mathbb{D}_A^{1/n}\mathbb{D}_B^{1/n}}\right)^{-n}}
+$$
+where
+
+$$
+\mathbb{D}_A = \frac{F_A\left(\frac{D_A}{{ID}_{M,A}}\right)^{n_a}}
+{1+(1-F_A)\left(\frac{D_A}{{ID}_{M,A}}\right)^{n_a}}
+$$
+$$
+\mathbb{D}_B = \frac{F_B\left(\frac{D_B}{{ID}_{M,B}}\right)^{n_b}}
+{1+(1-F_B)\left(\frac{D_B}{{ID}_{M,B}}\right)^{n_b}}
+$$
+$$
+F_A = \frac{E_{f,A}-E_0}{E_f-E_0}
+$$
+$$
+F_B = \frac{E_{f,B}-E_0}{E_f-E_0}
+$$
+$$
+n = \sqrt{n_a n_b}
+$$

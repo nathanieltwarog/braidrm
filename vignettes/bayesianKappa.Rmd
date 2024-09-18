@@ -1,0 +1,245 @@
+---
+title: "Bayesian Stabilization of kappa"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Bayesian Stabilization of kappa}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup, include=FALSE}
+library(braidrm)
+set.seed(20240820)
+```
+
+## The Problem
+
+One of the long-standing limitations of the BRAID model (and indeed any
+parametric response model) is how to handle conditions in which one or both of
+the compounds show little to no activity.  Synergy, in the pharmacological 
+sense, is a circumstance in which a combination is more potent than one would
+expect based on its individual behaviors.  But what does synergy look like when
+one of the compounds does nothing?  A more potent nothing is still ... nothing.
+Even in cases where the compound does show activity, if the concentrations
+tested lie too far below a compound's dose of median effect, that activity will
+be virtually undetectable.  This results in many experiments where the value
+of the response surface parameters, including the interaction parameter $\kappa$,
+are severely under-determined.
+
+Take the example dataset `incompleteExample`. This dataset represents a
+checkerboard of measurements tested at concentrations between 0.125 and 8, in 
+which the second compound has a dose of median effect of 100, well above the
+range tested; in addition, the maximal effect of this compound is just 10% that
+of the first compound, barely distinguishable from noise.  This results in an
+experiment in which effect of the second compound is virtually identical to no
+effect at all:
+
+```{r}
+surface <- incompleteExample
+head(surface)
+head(surface[surface$concA==0,])
+```
+
+This surface was generated with the parameter vector show below in
+`trueParameter`, and indeed we find that the root-mean-squared error between
+this ideal model and the measured data is quite low:
+
+```{r}
+trueParameter <- c(1, 100, 3, 3, 0, 0, 1, 0.1, 1)
+trueSurface <- evalBraidModel(surface$concA,surface$concB,trueParameter)
+trueError <- surface$measure - trueSurface
+
+sqrt(mean(trueError^2))
+```
+
+But when we fit the data with an unstabilized BRAID model, the resulting
+parameter vector is quite different:
+
+```{r}
+bfit <- braidrm(measure~concA+concB,surface, prior="none")
+coef(bfit)
+```
+
+The best fitting model is one in which the dose of median effect of the second
+drug is actually quite *low*, the maximal effect of the second drug is even
+lower than before, and the surface exhibits a synergistic interaction with
+a $\kappa$ over 3.  Despite this disagreement with the original parametric
+representation, this BRAID model actually fits the data *more* closely:
+
+```{r}
+sqrt(mean(resid(bfit)^2))
+```
+
+The severity of the issue is made even more clear by examining the
+confidence intervals on the parameters:
+
+```{r}
+summary(bfit)
+```
+
+Consider the precise meaning of the confidence interval on $\kappa$ here.  These
+are bootstrapped confidence intervals chosen by resampling residuals (see 
+`vignette("confidenceIntervals")`), so a confidence interval ranging from 
+-1.36 (indicating very pronounced antagonism) to 39.6 (*extremely* high 
+synergy) means that if a new experiment with the same pattern of errors or
+residuals were run with this underlying response surface, the best-fit values
+of $\kappa$ would lie in this range 95% of the time; more importantly they would
+lie *outside* this range up to 5% of the time.  One out of every twenty runs
+would be best fit by an extreme value of $\kappa$.  In fact, in practice, the
+frequency of this outcome is even higher, as slight patterns of noise in 
+under-determined surfaces are often best explained by extreme variations in
+$\kappa$.
+
+Of course, in some cases, this is hardly an issue; the reason these variations
+occur is because all the values explain the data nearly equally well; so 
+predictions and quantitative measures of combination activity within the range
+tested would still be quite stable.  But if one hopes to draw meaningful
+conclusions from the value of $\kappa$, or compare $\kappa$ across a
+large set of comparable experiments, this instability can be extremely
+frustrating.
+
+## The Solution: Bayesian Stabilization
+
+When we began updating the BRAID code for this package, addressing this
+instability was one of our chief concerns.  We have worked with many analyses
+intended to tease out the drivers of synergy and antagonism, represented
+quantitiatively by $\kappa$, and this can be much more difficult to do if many
+of the most extreme values of $\kappa$ are nothing more than noise.  So with
+the updated fits, we wanted to operate by the following principle: a large value
+of $\kappa$ should correspond to a large or significant deviation.  Put another
+way, extreme $\kappa$ values should only be fit when there is sufficient
+evidence to support them.  The most straightforward way for us to do this was to
+introduce a Bayesian prior on the value of $\kappa$.
+
+The derivation goes as follows.  Suppose we assume that our measured response
+surface is drawn from a normal noise distribution around the true response
+surface, so the likelihood of a given set of measurements is:
+
+$$
+L(\{x_i\}) = \prod_{i}{N(x_i-y_i,\sigma^2)}=\prod_i{\frac{1}{\sqrt{2\pi\sigma^2}}}\exp\left(-\frac{(x_i-y_i)^2}{2\sigma^2}\right)
+$$
+
+where $y_i$ is the predicted effect at a given point based on the current set
+of parameters.  Maximizing this likelihood reduces to minimizing the sum of
+squared errors, hence the traditional approach to fitting.  Introducing a prior,
+however, requires maximizing not the likelihood of the data given the
+parameters, but maximizing the posterior probability of the parameters given
+the data *and* the prior probabilities for those parameters.  According to
+Bayes rule:
+
+$$
+P(\theta|\{x_i\}) \propto L(\{x_i\}|\theta)P(\theta)
+$$
+
+where $\theta$ is just a representation of a particular set of parameters and
+$P(\theta)$ is the prior distribution on those parameters.  We have no reason
+to add in priors to the other parameters of our response surface, so we assume
+that the prior distribution on them is effectively uniform, so for our purposes,
+$P(\theta) = P(\kappa)$, and the objective function that we want to maximize is:
+
+$$
+O(\theta) = P(\kappa)\cdot\prod_i{\frac{1}{\sqrt{2\pi\sigma^2}}}\exp\left(-\frac{(x_i-y_i)^2}{2\sigma^2}\right)
+$$
+
+As with many probability models, it is much easier to *minimize* the negative
+logarithm of this function than to maximize the function directly, so the loss
+function we seek to minimize partially reduces to:
+
+$$
+L(\theta) = -\log{P(\kappa)} + \frac{N}{2}\log{2\pi\sigma^2}+\frac{1}{2\sigma^2}\sum_i{(x_i-y_i)^2}
+$$
+
+Because $\sigma^2$ is a property of the experiment and not impacted by the
+parameters of our response surface, minimizing this loss is equivalent to 
+minimizing a similar expression in which the second term has been canceled out
+and the whole expression has been multiplied by $2\sigma^2$, giving:
+
+$$
+L'(\theta) = \sum_i{(x_i-y_i)^2} - 2\sigma^2\log{P(\kappa)}
+$$
+
+There!  So maximizing the posterior amounts to minimizing the sum of squared
+errors *with an extra term* representing the loss from the prior on $\kappa$.
+
+Of course, this means that to add Bayesian stabilization of $\kappa$ we need two
+values that we would not have included in a traditional least-squares fit: 
+$\sigma^2$, representing the variance of measurement noise, and $P(\kappa)$, our
+new Bayesian prior.  The simplest way to include $\sigma^2$ is to supply it 
+directly, often estimated from some other experimental data, such as the 
+variance of measurements in controls.  But when such values are not readily
+available, the variance can be estimated more directly by fitting a fully 
+agnostic response surface to the data, and taking the average deviation. This is
+what functions like `braidrm` do by default.
+
+For a prior on $\kappa$, we chose a function that was symmetric in its treatment
+of synergy and antagonism, and adjustable in the severity with which it enforced
+values of $\kappa$ closer to zero.  The precise definition is:
+
+$$
+P(\kappa) = \frac{1}{\sqrt{2\pi\eta^2}}\exp{-\frac{\epsilon^2}{2\eta^2}}
+$$
+
+where $\epsilon=\log{(\kappa+2)/2}$ is a transformed, symmetrized version of
+$\kappa$ that goes to negative infinity for antagonistic values and infinity for
+synergistic values; and $\eta$ is a parameter controlling the narrowness and
+severity of the prior. For the default prior in the `braidrm` package (called
+"moderate"), the value of $\eta$ is simply 1.
+
+Bringing all these together (and filtering out an additional constant term) we
+have our final, Bayesian stabilized loss function for BRAID fitting:
+
+$$
+L^{*}(\theta) = \sum_i{(x_i-y_i)^2}-\frac{\sigma^2\epsilon^2}{\eta^2}
+$$
+
+## Using Bayesian Stabilization in the braidrm Package
+
+In most cases, the user will (hopefully) not have to consider these details at
+all. Bayesian stabilization is implemented in BRAID fitting functions by
+default, and should quietly hold $\kappa$ values close to zero in cases where no
+evidence of interaction is present.  But in the event that one *does* want more
+precise control of the behavior, several options are available. The simplest is
+the `prior` parameter in fitting functions such as `braidrm` and
+`findBestBraid`. By default, this parameter is set to `"moderate"`, which
+automatically estimates $\sigma^2$ from the data and uses a default $\eta$ of 1;
+setting it to `"high"` decreases $\eta$ to $2/3$, holding $\kappa$ closer to
+zero, and setting it to `"mild"` increases $\eta$ to $3/2$, allowing $\kappa$
+more space. Finally, setting it to `"none"` (as we did in an example above)
+removes the prior on $\kappa$ altogether, and simply fits the least-squares
+model.
+
+Another option is to specify the prior on $\kappa$ more explicitly using the
+`kappaPrior()` function.  This function produces an object of class `kappaPrior`
+which can be passed into BRAID fitting functions as the `prior` parameter. It
+takes two parameters: `spread`, representing the standard deviation of expected
+noise (i.e. $\sigma$), and `strength`, which is either one of the strings
+specified above, or a numeric value corresponding to the severity of the prior
+(which is actually just $1/\eta$). This function is quite useful if a reliable
+estimate of the magnitude of noise in an experiment is known or can be
+estimated.
+
+For example, suppose we have reason to believe that measurements in our
+`incompleteExample` experiment had a standard noise deviation of 0.05.  We
+could then fit our surface using the following:
+
+```{r}
+stableFit <- braidrm(measure~concA+concB,surface,
+					 prior=kappaPrior(0.05,"moderate"))
+
+sqrt(mean(resid(stableFit)^2))
+summary(stableFit)
+```
+
+This adjusted model fits the data nearly as well as the unstabilized model, but
+the magnitude of $\kappa$ is moderately reduced, and more importantly, the
+confidence intervals are much more restrained.  In practice, we have found that
+even moderate Bayesian stabilization drastically reduces the incidence of
+extreme yet uninformative $\kappa$ values, improving the overall quantitative
+power of it as a measure of interaction.

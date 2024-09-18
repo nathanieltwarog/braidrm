@@ -1,0 +1,165 @@
+---
+title: "Estimating the IAE"
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup, include=FALSE}
+library(braidrm)
+library(braidReports)
+library(tidyverse)
+```
+
+## Introduction
+
+While the parameters of the BRAID model are chosen to carry intuitive meaning
+about different aspects of a drug combination's effect, analyzing them
+individually often leaves out important aspects of the bigger picture.
+Determining whether one combination is more or less synergistic than another may
+be interesting scientifically, but in a translational setting that comparison is
+far less important than a much simpler question: does the combination work? A
+less synergistic, but much more potent combination is translationally far more
+promising, even if the lower interaction makes it less scientifically exciting.
+In dose response analysis, these more translational evaluations are performed
+using aggregate measures like the area-under-the-curve or the therapeutic
+window. How might we apply these concepts to a response *surface*? 
+*Note: this package makes use of both the*
+`braidReports` *package for visualization and the* `tidyverse` *package to*
+*make the code more easily readable. Neither is a required dependency of the*
+`braidrm` *package, though* `braidReports` *is strongly suggested.*
+
+
+## The Index of Achievable Efficacy
+
+The primary metric of aggregate activity for the BRAID model is the index
+of achievable efficacy, or IAE.  Based on the therapeutic index, the IAE is
+a quantitative comparison of the space of achievable doses of a given
+combination and the space of doses that produce a desired effect. To see it in
+action, consider the following example:
+
+Say we have a additive combination of two drugs.  For simplicity, we'll assume
+that both drugs have a dose of median effect of 1 micromolar, a relatively
+sharp Hill slope of 3, and maximal effect ot 1.0 (100% efficacy). Suppose 
+further that both drugs can safely be administered up to 2 micromolar;
+unfortunately, this means that neither drug can cross a threshold of 90% 
+efficacy in isolation; but when combined, many dose pairs below the 2 micromolar
+threshold achieve the desired effect:
+
+```{r}
+additivePar <- c(
+	1, 1, 3, 3,
+	0, # Additive
+	0, 1, 1, 1  
+)
+
+concentrations <- seq(0,3,length=51)
+surface <- expand_grid(concA=concentrations, concB=concentrations) %>%
+	mutate(additive = evalBraidModel(concA,concB,additivePar))
+
+achieve <- data.frame(concA=c(-Inf,2,2),concB=c(2,2,-Inf))
+
+ggplot(surface,aes(x=concA,y=concB)) +
+	geom_raster(aes(fill=additive)) +
+	scale_fill_distiller(palette="RdYlBu",direction=-1) +
+	geom_contour(aes(z=additive),breaks=0.9,colour="black")+
+	geom_path(data=achieve,linetype=2,colour="black")+
+	labs(x="Concentration A",
+		 y="Concentration B",
+		 fill="Effect",
+		 title="Additive Surface")+
+	coord_equal()
+
+```
+
+This simple fact - that combining achievable doses of multiple drugs can reach
+levels of efficacy not safely achievable with any compound alone - is the 
+primary reason for the extraordinary power and potential of combination therapy.
+
+So how can we quantify this efficacy?  When calculating the therapeutic index
+one takes the highest safely achievable dose (the magnitude of achievable doses)
+and divides it by the lowest dose that reaches some desired level of effect.
+Because every dose below this threshold does *not* reach the desired effect,
+this threshold dose can also be viewed as the magnitude of achievable doses that
+do not reach the desired effect.  We use this somewhat awkward re-framing 
+because it translates much more easily to higher dimensional therapeutic spaces.
+
+So to create an analogous metric in a two-drug combination, we take the total
+magnitude of achievable dose-space (in this case everything where both drugs 
+are below 2 micomolar, so 4 micromolar squared), and divide it by the space of
+doses that do *not* reach the desired effect (in this case 0.9 or 90%). This 
+ratio is *close* to being the IAE, but because it still carries the
+dimensionality of the two-drug space, we take the square root to produce a value
+comparable to a traditional therapeutic index.
+
+All these calculations are carried out for us using the function 
+`estimateIAE()`:
+
+```{r}
+estimateIAE(
+	additivePar,  # A Braid parameter vector
+	0.9,          # The desired effect level
+	c(2,2)        # The maximum achievable concentrations of both drugs
+)
+```
+
+This value is not extraordinarily high but it can be affected by the properties
+of the response surface, including the interaction parameter $\kappa$. 
+Not surprisingly increasing $\kappa$ reduces the space of sub-threshold doses,
+and hence increases the IAE:
+
+```{r}
+synergisticPar <- c(
+	1, 1, 3, 3,
+	2, # kappa > 0 indicates synergy
+	0, 1, 1, 1 
+)
+
+surface <- surface %>%
+	mutate(synergy = evalBraidModel(concA,concB,synergisticPar))
+
+ggplot(surface,aes(x=concA,y=concB)) +
+	geom_raster(aes(fill=synergy)) +
+	scale_fill_distiller(palette="RdYlBu",direction=-1) +
+	geom_contour(aes(z=synergy),breaks=0.9,colour="black")+
+	geom_path(data=achieve,linetype=2,colour="black")+
+	labs(x="Concentration A",
+		 y="Concentration B",
+		 fill="Effect",
+		 title="Additive Surface")+
+	coord_equal()
+
+estimateIAE(synergisticPar, 0.9, c(2,2))
+```
+
+Introducing antagonism on the other hand inflates the space of subthreshold
+doses above the range of achievable dose pairs, resulting in a minimal IAE of
+1.
+
+```{r}
+antagonisticPar <- c(
+	1, 1, 3, 3,
+	-1, # kappa < 0 indicates antagonism
+	0, 1, 1, 1 
+)
+
+surface <- surface %>%
+	mutate(antagonism  = evalBraidModel(concA,concB,antagonisticPar))
+
+ggplot(surface,aes(x=concA,y=concB)) +
+	geom_raster(aes(fill=antagonism )) +
+	scale_fill_distiller(palette="RdYlBu",direction=-1) +
+	geom_contour(aes(z=antagonism ),breaks=0.9,colour="black")+
+	geom_path(data=achieve,linetype=2,colour="black")+
+	labs(x="Concentration A",
+		 y="Concentration B",
+		 fill="Effect",
+		 title="Additive Surface")+
+	coord_equal()
+
+estimateIAE(antagonisticPar, 0.9, c(2,2))
+```

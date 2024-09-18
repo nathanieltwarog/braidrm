@@ -1,558 +1,683 @@
+
+#' BRAID Response Surface Fitting
+#'
+#' Fits a BRAID response surface model to data.
+#'
+#' @param formula Either an object of class `formula` such as would be provided
+#' to a modeling function like [stats::lm()], or a width-2 numeric array vector
+#' of concentration pairs (including 0 or Inf).  A formula should specify a
+#' single output as a function of two inputs, eg. `activity ~ conc1 + conc2`.
+#' @param data If `forumula` is a symbolic formula, a data frame containing the
+#' specified values. If `formula` is a numeric array of concentrations, a
+#' numeric vector of response values, the same length as the number of rows of
+#' `formula`.
+#' @param model,links Parameters `model` and `links` are used to specify which
+#' variant of the BRAID model is fit to data.  Model may be one of the
+#' following character strings: "kappa1", "kappa2", or "kappa3" (see Details),
+#' or a subset of the numbers 1 through 9 specifying which of the nine BRAID
+#' response surface parameters is allowed to vary when fitting.  `links` allows
+#' the user to further specify constraints on the three BRAID maximal effect
+#' parameters (see Details for more).  If `model` is one of the supported
+#' character strings, the parameter `links` will be ignored.
+#' @param weights A vector of weights (between 0 and 1) the same length as
+#' the data which determines the weight with which each measurement
+#' will impact the the sum of squared errors.  Weights will be multiplied by
+#' errors *before* squaring.  If `NULL` (the default) all weights will be set
+#' to 1. Can be a numeric vector, or the name of a column in `data` if `formula`
+#' is a symbolic formula
+#' @param start A BRAID parameter vector specifying the first guess where the
+#' non-linear optimization should begin.  May be a length 7, 8, or 9 vector,
+#' though a full length vector is always preferable.  If `NULL` (the default),
+#' it will be estimated from the data.
+#' @param direction Determines the possible directionality of the BRAID
+#' model.  If 0 (the default) no additional constraints are placed on the
+#' parameters.  If greater than 0, the fitting will require that the maximal
+#' effects are all *greater* than or equal to the minimal effect.  If less
+#' than 0, the fitting will require that all maximal effect is *less* than or
+#' equal to the minimal effect.
+#' @param lower A numeric vector of lower bounds on the fitted parameter values.
+#' May be the same length as the number of fitted parameters, or a full,
+#' length-9 vector. Missing or unspecified lower bounds may be included as `NA`
+#' or `Inf`; if unspecified, lower bounds on the first five parameters (IDMA,
+#' IDMB, na, nb, and kappa) will be automatically estimated from the data.
+#' Bounds on the minimal and maximal effect parameters however (E0, EfA, EfB,
+#' and Ef) will be assumed to be infinite unless specified.  A value of `NULL`,
+#' the default, will be treated as all lower parameter bounds being
+#' unspecified.
+#' @param upper A numeric vector of upper bounds on the fitted parameter values.
+#' Used in the same way as `lower`.
+#' @param prior A character string specifying the desired Bayesian prior term
+#' for kappa, or an object of class `kappaPrior` genererated by the function
+#' [kappaPrior()].  Allowed strings are "mild", "moderate" (the default),
+#' "high", or "none".  If a string is given, the kappa prior object will be
+#' estimated from the data using an initial ten-parameter fit to approximate
+#' measurement noise.
+#' @param getCIs Should bootstrapped confidence intervals be estimated and
+#' added to the BRAID fit object. Default value is `TRUE`.
+#' @param object An object of class `braidrm` to be summarized
+#' @param x An object of class `braidrm` or `summary.braidrm` to be printed
+#' @param ... Further arguments passed to or from other methods.
+#'
+#' @return An object of class `braidrm` containing the following elements:
+#'
+#' * `concs`: A width-two array of the concentration pairs fit by the model
+#' * `act`: A vector of responses fit by the model
+#' * `weights`: The vector of weights (the same length as `act`) specifying
+#' the relative weight of each measurement
+#' * `coefficients`: A full length-9 named BRAID parameter vector representing
+#' the best fit BRAID surface for the data
+#' * `fitted.values`: A vector of responses (the same length of `act`) given by
+#' the best fit response surface as a function of the concentrations in `concs`
+#' * `residuals`: The fitting errors of the best fit model, equal to the
+#' `fitted.values` subtracted from `act`
+#' `scenario`: A character string specifying one of 32 distinct fitting
+#' scenarios determined from the parameters `model`, `links`, and `start`. Used
+#' in bootstrapping confidence intervals
+#' * `model`: The model vector (a subset of values between 1 and 9) specifying
+#' which BRAID parameters were varying freely in the fit
+#' * `start`: The length-9 starting BRAID parameter vector used in non-linear
+#' optimization
+#' * `direction`: Like the input parameter, a value of -1, 0, or 1 specifying
+#' the constraint on the directionality of the fitted surface
+#' * `pbounds`: A 2-by-k array of values specifying the lower and upper bounds
+#' of all varying parameters (where k is the number of free parameters).
+#' * `kweight`: A numeric value summarizing the relative Bayesian influence of
+#' the BRAID parameter kappa on optimized objective function.
+#'
+#' Fit objects with bootstrapped confidence intervals include several additional
+#' elements derived from that; see [calcBraidBootstrap()] for details.
+#'
+#' @details
+#' One of the hairiest and most confusing aspects of fitting a combined
+#' response surface model is handling the relationships between maximal effects.
+#' Unlike a simple dose response model such as those fit in `basicdrm` in which
+#' all parameters can be treated as fairly independent, response surface models
+#' are often considered with constraints that cannot be expressed as simply one
+#' parameter being fixed a particular value.  Many response surface models
+#' assume that the two drugs in combination (and the overall combination) share
+#' a single common maximal effect; others might assume that the maximal effects
+#' of the two drugs should differ but that the overall maximal effect must be
+#' equal to one of these; still others may wish to fit with no constraints on
+#' maximal effect at all beyond guaranteeing that they lie above a fixed
+#' minimal effect.  All these approaches are valid, and creating a functional
+#' interface to support them all is a challenge. The parameters given here
+#' represent our best effort to balance ease-of-use with flexibility.
+#'
+#' The primary interface for model selection and customization is the paired
+#' paramters `model` and `links`.  For the first six parameters of the BRAID
+#' surface, `model` is the only relevant control, and operates much as it would
+#' in any fitting function.  If a given parameter (say IDMB) is included in
+#' `model` (as index 2) then it will vary freely within the provided bounds to
+#' best fit the data.  If it is not, the value will be fixed at the value given
+#' in `start` (or if `start` is `NULL`, estimated from the data), and will
+#' remain fixed at that value in the best fit surface.
+#'
+#' Parameters EfA, EfB, and Ef (the maximal effect parameters) require slightly
+#' more care. Relationships between these values is represented by the `links`
+#' parameter, which can take on one of the following five values:
+#'
+#' * "AB": Indicating that the overall Ef parameter is the driver, both EfA and
+#' EfB are constrained to be equal to Ef, whatever its value.  Can be used
+#' when indices 7 and 8 (EfA and EfB) are absent from `model`, but index 9 (Ef)
+#' is present
+#' * "F": Indicating instead that the individual parameters EfA and EfB are
+#' the drivers, and EfA is constrained to be equal to larger magnitude of the
+#' two. Can be used when indices 7 and 8 are present `model`, but index 9 is
+#' absent
+#' * "A": Specifies that the overall maximal effect is equal to that of the
+#' first trug (and consequentially that the effect of drug A must be of greater
+#' or equal magnitude to that of drug B).  Can be used when index 7 is
+#' absent in `model` and index 9 is present; index 8 may be present or absent
+#' * "B": Specifies that the overall maximal effect is equal to that of the
+#' second drug.  Can be used when index 8 is  absent in `model` and index 9 is
+#' present; index 7 may be present or absent
+#' * "" (the empty string): Indicates no equality between maximal effects.
+#' Parameters that are present in `model` vary freely in fitting, those that
+#' are absent are fixed at constant values.
+#'
+#' For example, if the maximal effects *should* be fit, but should be
+#' constrained to be all equal, then it is the parameter Ef that varies freely
+#' in the fitting; the fact that EfA and EfB are always equal to this value is
+#' represented by setting the `links` parameter to "AB".  Contrast this with the
+#' (admittedly much less common) scenario in which the `links` parameter is set
+#' to the empty string "", representing no link between maximal effects. In this
+#' case the parameter Ef will indeed vary freely in the fitting, but EfA and
+#' EfB will instead always be held at the constant initial values in the
+#' starting parameter vector.  On the other hand, if we were to assume that the
+#' two individual maximum effect parameters can vary independently, but that
+#' the overall maximal effect should be equal to the larger of the two, then
+#' indices 7 and 8 (representing EfA and EfB) would be included in `model`;
+#' index 9 (representing Ef) would be excluded, and the `links` parameter would
+#' be set to "F" indicating that Ef is tied to the larger of the two.
+#'
+#' Note also that the default value for `links` is *not* the empty string, but
+#' instead `NULL`.  By default the value of `links` will be guessed from the
+#' model vector, based on the scenarios that we have encountered most often.
+#' If `model` inclues Ef (index 9) but not EfA or EfB (indices 7 and 8), `links`
+#' is assumed to be "F"; if EfA and EfB are present but not Ef, `links` is set
+#' to "AB". In the vast majority of cases, you will not need to specify this
+#' parameter yourself.  This is especially true when `model` is specified with
+#' one of the model strings, in which any provided value for `links` will be
+#' discarded and replaced witht the following preset models:
+#'
+#' * kappa1: Model vector includes (1, 2, 3, 4, 5, 6, 9) and `links` is set to
+#' "AB"
+#' * kappa2: Model vector includes (1, 2, 3, 4, 5, 6, 7, 8) and `links` is set
+#' to "F"
+#' * kappa3: Model vector includes (1, 2, 3, 4, 5, 6, 7, 8, 9) and `links` is
+#' set to the empty string
+#'
+#'
+#' @export
+#'
+#' @examples
+#' bfit1 <- braidrm(measure ~ concA + concB, additiveExample)
+#' summary(bfit1)
+#'
+#' bfit2 <- braidrm(measure ~ concA + concB, synergisticExample,
+#'                  model = c(1,2,3,4,5,6,9),
+#'                  lower = c(NA,NA,NA,NA,NA,0,0),
+#'                  prior = "none",
+#'                  getCIs = FALSE)
+#' summary(bfit2)
+braidrm <- function(formula,data,model="kappa2",links=NULL,weights=NULL,
+					start=NULL,direction=0,lower=NULL,upper=NULL,
+					prior="moderate",getCIs=TRUE) UseMethod("braidrm")
+
+#' @export
+#' @rdname braidrm
 summary.braidrm <- function(object, ...) {
-	if (is.null(object$ciPass) || !object$ciPass) {
-		TAB <- coef(object)
+	if (is.null(object$ciCoefs)) {
+		tab <- cbind(object$coefficients)
+		colnames(tab) <- "Est"
 	} else {
-		cv <- object$ciVec
-		TAB <- cbind(CILow = cv[seq(1,length(cv),by=2)],Estimate = coef(object),CIHigh = cv[seq(2,length(cv),by=2)])
+		tab <- cbind(NA_real_,object$coefficients,NA_real_)
+		tab[object$model,1] <- object$ciMat[,1]
+		tab[object$model,3] <- object$ciMat[,2]
+		colnames(tab) <- c("Lo","Est","Hi")
 	}
-	res <- list(call=object$call,coefficients=TAB)
+	if (!is.null(object$call)) {
+		res <- list(call=object$call,coefficients=tab)
+	} else {
+		res <- list(coefficients=tab)
+	}
 	class(res) <- "summary.braidrm"
 	return(res)
 }
+
+#' @export
+#' @rdname braidrm
 print.summary.braidrm <- function(x, ...) {
-	cat("Call:\n")
-	print(x$call)
+	if (!is.null(x$call)) {
+		cat("Call:\n")
+		print(x$call)
+	}
 	cat("\n")
 	print(round(x$coefficients,digits=4))
 }
+
+#' @export
+#' @rdname braidrm
 print.braidrm <- function(x, ...) {
-	cat("Call:\n")
-	print(x$call)
+	if (!is.null(x$call)) {
+		cat("Call:\n")
+		print(x$call)
+	}
 	cat("\nCoefficients:\n")
-	print(x$fullpar)
+	print(x$coefficients)
 }
 
-braidrm <- function(model,data,getCIs=TRUE,fixed="kappa2",startparv=NULL,llims=NULL,ulims=NULL,...) UseMethod("braidrm")
-
-braidrm.default <- function(model,data,getCIs=TRUE,fixed="kappa2",startparv=NULL,llims=NULL,ulims=NULL,...) {
-	concs <- model
-	act <- data
-	if (ncol(concs)!=2) { stop("Parameter 'concs' must be an array with two columns.") }
-	conc1 <- as.vector(concs[,1])
-	conc2 <- as.vector(concs[,2])
-	act <- as.vector(act)
-	if (length(conc1)!=length(conc2) | length(conc1)!=length(act)) {
-		stop("Parameters 'concs', and 'act' must contain the same number of elements.")
-	}
-	cdef <- startparv
-	cfixed <- fixed
-	for (iter in 1:5) {
-		nls <- try(fitBRAIDrsm(conc1,conc2,act,fixed=cfixed,def=cdef,llims=llims,ulims=ulims),silent=TRUE)
-		if (class(nls) != "try-error" && nls$convergence==0) { break }
-		else if (iter==5) { stop(paste("Convergence error:",nls$message)) }
-		cdef <- nls$fullpar
-		cdef[1:5] <- log(cdef[1:5])
-		cdef[1:7] <- cdef[1:7]+runif(7,min=-0.01,max=0.01)
-		# cdef[8:10] <- mean(cdef[8:10])+runif(1,min=-0.01,max=0.01)
-		cdef[1:5] <- exp(cdef[1:5])
-		cfixed <- nls$fixed
-		if ((is.character(fixed)||length(fixed)<10) && !is.na(cfixed[10])) { cfixed[10] <- cdef[10] }
-		cdef <- cdef[which(is.na(cfixed))]
-		cdef <- pmax(cdef,nls$mlims[1,])
-		cdef <- pmin(cdef,nls$mlims[2,])
-	}
-	ostart <- nls$odef
-	nfixed <- nls$fixed
-	fullpar <- nls$fullpar
-	nfixed[which(!is.na(nfixed))] <- fullpar[which(!is.na(nfixed))]
-	ccoef <- fullpar[which(is.na(nfixed))]
-	pred_act <- evalBRAIDrsm(conc1,conc2,fullpar)
-	bfit <- list(conc1=conc1,conc2=conc2,act=act,fitted.values=pred_act,residuals=(pred_act-act),
-					ostart=ostart,fixed=nfixed,mlims=nls$mlims,coefficients=ccoef,fullpar=fullpar,
-					convergence=nls$convergence,message=nls$message,call=match.call())
-	
-	cfnames <- c("IDMA","IDMB","na","nb","delta","kappa","E0","EfA","EfB","EfAB")
-	names(bfit$coefficients) <- cfnames[which(is.na(nfixed))]
-	class(bfit) <- "braidrm"
-	if (getCIs) { bfit <- getBRAIDbootstrap(bfit) }
-	return(bfit)
-}
-braidrm.formula <- function(model,data,...) {
-	mf <- model.frame(formula=model, data=data)
-	concs <- model.matrix(attr(mf, "terms"), data=mf)
+#' @export
+#' @rdname braidrm
+braidrm.formula <- function(formula,data,model="kappa2",links=NULL,weights=NULL,
+							start=NULL,direction=0,lower=NULL,upper=NULL,
+							prior="moderate",getCIs=TRUE) {
+	mf <- stats::model.frame(formula=formula, data=data)
+	concs <- stats::model.matrix(attr(mf, "terms"), data=mf)
 	tms <- attr(concs,"assign")
 	for (i in seq(length(tms),1,by=-1)) {
 		if (tms[i]==0) { concs <- concs[,-i] }
 	}
-	act <- model.response(mf)
-	bfit <- braidrm.default(concs,act,...)
+	act <- stats::model.response(mf)
+	weights <- eval(substitute(weights),data)
+	bfit <- braidrm.default(concs,act,model,links=links,weights=weights,
+							start=start,direction=direction,lower=lower,upper=upper,
+							prior=prior,getCIs=getCIs)
 	bfit$call <- match.call()
 	return(bfit)
 }
-getBRAIDbootstrap <- function(bfit,ciLevs=c(0.025,0.975),numBoot=NULL) {
-	if (class(bfit)!="braidrm") { stop("Input 'bfit' must be of class 'braidrm'.") }
-	if (!is.null(bfit$ciPass)) {
-		warning("Input already has bootstrapped coefficients (or has failed bootstrapping).")
-		return(bfit)
+
+#' @export
+#' @rdname braidrm
+braidrm.default <- function(formula,data,model="kappa2",links=NULL,weights=NULL,
+							start=NULL,direction=0,lower=NULL,upper=NULL,
+							prior="moderate",getCIs=TRUE) {
+	concs <- formula
+	act <- data
+
+	# Rectify model and links
+	originalModel <- model
+	originalLinks <- links
+	if (is.character(model)) {
+		model <- switch(originalModel,
+						kappa1=c(1,2,3,4,5,6,9),
+						kappa2=c(1,2,3,4,5,6,7,8),
+						kappa3=c(1,2,3,4,5,6,7,8,9),
+						stop(sprintf("Unknown model name '%s'.",model)))
+		links <- switch(originalModel,
+						kappa1="AB",
+						kappa2="F",
+						kappa3="",
+						stop(sprintf("Unknown model name '%s'.",model)))
+	} else if (is.null(links)) {
+		if (all((7:9)%in%model)||!any((7:9)%in%model)) { links <- "" }
+		else if (!(9%in%model)) { links <- "F" }
+		else if (8%in%model) { links <- "A" }
+		else if (7%in%model) { links <- "B" }
+		else { links <- "AB" }
 	}
-	prcBootPass <- 0.5
-	if (is.null(numBoot)) { numBoot <- max(min(10/(1-ciLevs[2]+ciLevs[1]),1000),100) }
-	bCoefs <- array(coef(bfit),dim=c(1,length(coef(bfit))))
-	for (i in 1:numBoot) {
-		bact <- fitted(bfit) + sample(resid(bfit),length(resid(bfit)),replace=TRUE)
-		nls <- try(fitBRAIDrsm(bfit$conc1,bfit$conc2,bact,fixed=bfit$fixed,
-							def=coef(bfit),llims=bfit$mlims[1,],ulims=bfit$mlims[2,]),silent=TRUE)
-		if (class(nls)!="try-error" && nls$convergence==0 && !(TRUE %in% (is.infinite(nls$par) | is.nan(nls$par)))) {
-			cpar <- nls$fullpar[which(is.na(bfit$fixed))]
-			bCoefs <- rbind(bCoefs,array(cpar,dim=c(1,length(cpar))))
+	if (!is.null(originalLinks) && originalLinks!=links) {
+		warning("Warning: The named model implies a value for 'links' that does not match the specified value.",
+				"\nIn such cases, the value implied by the value of 'model' will be used.")
+	}
+
+	# Fill weights
+	if (is.null(weights)) { weights <- rep(1,length(act)) }
+
+	# Fill starting vector
+	originalStart <- start
+	if (isBraidParameter(start)) {
+		start <- fillOutBraidPar(start)
+		if (!checkLinks(start,links)) {
+			warning("Warning: given starting parameter vector does not satisfy the equality constraints implied",
+					"\nby parameters 'model' and 'links'. Starting parameter vector will be coerced to satisfy",
+					"\nthese constraints")
+			start <- coerceLinks(start,links)
 		}
-	}
-	nbfit <- bfit
-	if (nrow(bCoefs)<numBoot*prcBootPass) {
-		nbfit$ciPass <- FALSE
 	} else {
-		qMat <- apply(bCoefs,2,quantile,probs=ciLevs)
-		nbfit <- c(nbfit,list(ciPass=TRUE,ciLevs=ciLevs,bCoefs=bCoefs,ciVec=as.vector(qMat)))
+		start <- defaultStartingVector(concs,act,model,links,start,direction)
 	}
-	class(nbfit) <- "braidrm"
-	return(nbfit)
-}
-calcBRAIDconfint <- function(bfit,parfunc,civals=NULL) {
-	if (class(bfit)!="braidrm") { stop("Input 'bfit' must be of class 'braidrm'.") }
-	if (class(parfunc)!="function") { stop("Input 'parfunc' must be a function of one variable.") }
-	if (is.null(bfit$ciPass) || !bfit$ciPass) { stop("Input 'bfit' must have bootstrapped coefficients.") }
-	if (is.null(civals)) { civals <- bfit$ciLevs }
-	
-	ostart <- bfit$ostart
-	fixed <- bfit$fixed
-	fullpar <- bfit$fullpar
-	isIncr <- sign(fullpar[10]-fullpar[7])
-	parv2fullpar <- function(parv) {
-		tfullpar <- fullpar
-		tfullpar[which(is.na(fixed))] <- parv
-		if (is.na(fixed[10])) {
-			if (is.na(fixed[8])||is.na(fixed[9])) {
-				if (!is.na(fixed[8]) && ostart[8]==ostart[10]) { tfullpar[8] <- tfullpar[10] }
-				else if (!is.na(fixed[9]) && ostart[9]==ostart[10]) { tfullpar[9] <- tfullpar[10] }
-				else { tfullpar[10] <- tfullpar[10]+isIncr*max(isIncr*tfullpar[8:9]) }
-			}
-			else if (ostart[8]==ostart[10] && ostart[9]==ostart[10]) { tfullpar[8:9] <- tfullpar[10] }
-		} else if ((is.na(fixed[8]) || is.na(fixed[9])) && ostart[10]==isIncr*max(isIncr*ostart[8:9])) {
-			tfullpar[10] <- isIncr*max(isIncr*tfullpar[8:9])
-		}
-		return(tfullpar)
+
+	# Fill parameter bounds
+	pbounds <- fillParameterBounds(lower,upper,model,concs,originalStart)
+
+	if (isBraidParameter(originalStart) && is.null(lower)) {
+		pbounds[1,] <- pmin(pbounds[1,],start[model])
+	} else {
+		start[model] <- pmax(pbounds[1,],start[model])
 	}
-	
-	outval <- parfunc(fullpar)
-	outmat <- outval
-	if (length(outmat)==1) { outmat <- array(outmat,dim=c(1,1)) }
-	for (b in 1:nrow(bfit$bCoefs)) { outmat <- cbind(outmat,parfunc(parv2fullpar(bfit$bCoefs[b,]))) }
-	outci <- apply(outmat,1,quantile,probs=civals)
-	fullout <- cbind(as.vector(outci[1,]),outval,as.vector(outci[2,]))
-	return(fullout)
+	if (isBraidParameter(originalStart) && is.null(upper)) {
+		pbounds[2,] <- pmax(pbounds[2,],start[model])
+	} else {
+		start[model] <- pmin(pbounds[2,],start[model])
+	}
+
+	# Fill in kappa prior
+	if (is.null(prior) || is.character(prior)) {
+		if (is.null(prior)) { prior <- "moderate" }
+		if (prior=="none") { spread <- 1 }
+		else { spread <- defaultSurfaceSpread(concs,act,weights,originalStart) }
+		prior <- kappaPrior(spread,prior)
+	}
+	if (!inherits(prior,"kappaPrior")) {
+		stop("Parameter 'prior' must be a character string specifying a prior strength",
+			 "\nor an object of class 'kappaPrior' produced by the function 'kappaPrior'.")
+	}
+	kweight <- (prior$spread^2)*(prior$strength^2)
+
+	# Determine scenario
+	scenarioFunction <- getScenario(model,links)
+
+	bfit <- do.call(scenarioFunction,
+			list(concs,act,model,weights,start,direction,pbounds,kweight))
+
+	if (getCIs) { bfit <- calcBraidBootstrap(bfit) }
+	bfit
 }
 
-# Params 1 and 2: IDMA and IDMB
-# Params 3 and 4: na and nb
-# Param 5: delta
-# Param 6: kappa
-# Param 7: E0
-# Params 8 and 9: EA and EB
-# Param 10: EAB
-evalBRAIDrsm <- function(DA,DB,parv) { return(evalBRAIDrsm_int(DA,DB,parv)) }
-evalBRAIDrsm_int <- function(DA,DB,parv,fixed=c(NA,NA,NA,NA,1,NA,NA,NA,NA,NA),calcderivs=FALSE) {
-	concA <- DA
-	concB <- DB
-	if (abs(parv[8]-parv[7])>abs(parv[10]-parv[7]) || abs(parv[9]-parv[7])>abs(parv[10]-parv[7])) {
-		stop("Invalid parameter values.")
+defaultStartingVector <- function(concs,act,model,links="",start=NULL,direction=0) {
+	if (isBraidParameter(start)) {
+		return(fillOutBraidPar(start))
+	} else if (is.null(start)) {
+		e0 <- NULL
+		ef <- NULL
+	} else if (is.numeric(start) && length(start)==2) {
+		e0 <- start[[1]]
+		ef <- start[[2]]
 	}
-	if (parv[8]==parv[10]) {
-		Aden <- 1
-		Amod <- (concA/parv[1])^(sqrt(parv[3]/parv[4])/parv[5])
-	} else {
-		Aden <- 1+(1-((parv[8]-parv[7])/(parv[10]-parv[7])))*((concA/parv[1])^parv[3])
-		Amod <- ((parv[8]-parv[7])/(parv[10]-parv[7]))*((concA/parv[1])^parv[3])
-		iinds <- which(is.infinite(Aden)|is.infinite(Amod))
-		Aden[iinds] <- 1-(parv[8]-parv[7])/(parv[10]-parv[7])
-		Amod[iinds] <- (parv[8]-parv[7])/(parv[10]-parv[7])
-		Amod <- (Amod/Aden)^(1/(parv[5]*sqrt(parv[3]*parv[4])))
-		Aden[iinds] <- Inf
-	}
-	if (parv[9]==parv[10]) {
-		Bden <- 1
-		Bmod <- (concB/parv[2])^(sqrt(parv[4]/parv[3])/parv[5])
-	} else {
-		Bden <- 1+(1-((parv[9]-parv[7])/(parv[10]-parv[7])))*((concB/parv[2])^parv[4])
-		Bmod <- ((parv[9]-parv[7])/(parv[10]-parv[7]))*((concB/parv[2])^parv[4])
-		iinds <- which(is.infinite(Bden)|is.infinite(Bmod))
-		Bden[iinds] <- 1-(parv[9]-parv[7])/(parv[10]-parv[7])
-		Bmod[iinds] <- (parv[9]-parv[7])/(parv[10]-parv[7])
-		Bmod <- (Bmod/Bden)^(1/(parv[5]*sqrt(parv[3]*parv[4])))
-		Bden[iinds] <- Inf
-	}
-	ABrad <- sqrt(Amod*Bmod)
-	if (parv[6]!=0) { ABrad[which(Amod==0|Bmod==0)] <- 0
-	} else { ABrad[which(Amod==0|Bmod==0|ABrad==Inf)] <- 0 }
-	Exp <- Amod+Bmod+parv[6]*ABrad
-	Exp[is.infinite(Amod)|is.infinite(Bmod)] <- Inf
-	Den <- 1+Exp^(-parv[5]*sqrt(parv[3]*parv[4]))
-	Ei <- parv[7]+(parv[10]-parv[7])/Den
-	if (!calcderivs) { return(Ei) }
-	Emod <- (parv[10]-parv[7])*(Exp^(-parv[5]*sqrt(parv[3]*parv[4])-1))/(Den^2)
-	Emod[which(Exp==0)] <- 0
-	Emodz <- which(Emod==0 | is.infinite(Emod))
-	derivs <- array(0,dim=c(length(Ei),10))
-	if (is.na(fixed[1])) { derivs[,1] <- -parv[3]*Emod*(Amod+parv[6]*ABrad/2)/(Aden*parv[1]) }
-	if (is.na(fixed[2])) { derivs[,2] <- -parv[4]*Emod*(Bmod+parv[6]*ABrad/2)/(Bden*parv[2]) }
-	if (is.na(fixed[3]) || is.na(fixed[4]) || is.na(fixed[5])) {
-		AlogA <- Amod*log(Amod)
-		AlogA[which(Amod==0)] <- 0
-		BlogB <- Bmod*log(Bmod)
-		BlogB[which(Bmod==0)] <- 0
-		RlogR <- ABrad*log(ABrad)
-		RlogR[which(ABrad==0)] <- 0
-		ElogE <- Exp*log(Exp)
-		ElogE[which(Exp==0)] <- 0
-		derivs[,5] <- -sqrt(parv[3]*parv[4])*Emod*(AlogA+BlogB+parv[6]*RlogR-ElogE)
-		if (is.na(fixed[3])) {
-			derivs[,3] <- Emod*(Amod+parv[6]*ABrad/2)*log(concA/parv[1])/Aden
-			derivs[which(concA==0),3] <- 0
-			derivs[,3] <- derivs[,3]+parv[5]*derivs[,5]/(2*parv[3])
-		}
-		if (is.na(fixed[4])) {
-			derivs[,4] <- Emod*(Bmod+parv[6]*ABrad/2)*log(concB/parv[2])/Bden
-			derivs[which(concB==0),4] <- 0
-			derivs[,4] <- derivs[,4]+parv[5]*derivs[,5]/(2*parv[4])
-		}
-	}
-	if (is.na(fixed[6])) { derivs[,6] <- parv[5]*sqrt(parv[3]*parv[4])*Emod*ABrad }
-	derivs[Emodz,1:6] <- 0
-	if (is.na(fixed[7]) || is.na(fixed[8]) || is.na(fixed[9]) || is.na(fixed[10])) {
-		if (is.na(fixed[10]) && !is.na(fixed[8]) && !is.na(fixed[9]) && parv[8]==parv[10] && parv[9]==parv[10]) {
-			derivs[,10] <- 1/Den
-		} else if (xor(is.na(fixed[8]),is.na(fixed[10])) && parv[8]==parv[10]) {
-			derivs[,9] <- Emod*(Bmod+parv[6]*ABrad/2)*(1+(concB/parv[2])^parv[4])/(Bden*(parv[9]-parv[7]))
-			derivs[Emodz,9] <- 0
-			if (is.na(fixed[8])) { derivs[,8] <- 1/Den-derivs[,9]*(parv[9]-parv[7])/(parv[8]-parv[7]) }
-			else { derivs[,10] <- 1/Den-derivs[,9]*(parv[9]-parv[7])/(parv[10]-parv[7]) }
-		} else if (xor(is.na(fixed[9]),is.na(fixed[10])) && parv[9]==parv[10]) {
-			derivs[,8] <- Emod*(Amod+parv[6]*ABrad/2)*(1+(concA/parv[1])^parv[3])/(Aden*(parv[8]-parv[7]))
-			derivs[Emodz,8] <- 0
-			if (is.na(fixed[9])) { derivs[,9] <- 1/Den-derivs[,8]*(parv[8]-parv[7])/(parv[9]-parv[7]) }
-			else { derivs[,10] <- 1/Den-derivs[,8]*(parv[8]-parv[7])/(parv[10]-parv[7]) }
+
+	conc1 <- concs[,1]
+	conc2 <- concs[,2]
+	prel <- conc1>0 & is.finite(conc1) & conc2>0 & is.finite(conc2)
+	crng1 <- range(conc1[prel])
+	crng2 <- range(conc2[prel])
+	dcenter <- c(exp(mean(log(crng1))),exp(mean(log(crng2))),1,1,0)
+	if (is.null(e0)) {
+		erange <- stats::quantile(act[prel],c(0.05,0.95),names=FALSE)
+		if (direction==0) {
+			logconc <- log(conc1[prel])+log(conc2[prel])
+			lact <- act[prel]
+			dlm <- stats::lm(lact~logconc)
+			if (stats::coef(dlm)[[2]]>=0) {
+				e0 <- erange[[1]]
+				ef <- erange[[2]]
+			} else {
+				e0 <- erange[[2]]
+				ef <- erange[[1]]
+			}
+		} else if (direction>0) {
+			e0 <- erange[[1]]
+			ef <- erange[[2]]
 		} else {
-			derivs[,8] <- Emod*(Amod+parv[6]*ABrad/2)*(1+(concA/parv[1])^parv[3])/(Aden*(parv[8]-parv[7]))
-			derivs[,9] <- Emod*(Bmod+parv[6]*ABrad/2)*(1+(concB/parv[2])^parv[4])/(Bden*(parv[9]-parv[7]))
-			derivs[Emodz,8:9] <- 0
-			derivs[,10] <- 1/Den-derivs[,8]*(parv[8]-parv[7])/(parv[10]-parv[7])-derivs[,9]*(parv[9]-parv[7])/(parv[10]-parv[7])
-		}
-		if (is.na(fixed[7])) { derivs[,7] <- 1-derivs[,8]-derivs[,9]-derivs[,10] }
-	}
-	return(cbind(Ei,derivs))
-}
-invertBRAIDrsm <- function(val,DA=NULL,DB=NULL,parv) {
-	if ((is.null(DA)&&is.null(DB))||(!is.null(DA)&&!is.null(DB))) {
-		stop("Exactly one of the inputs 'DA' and 'DB' must be NULL (the default).")
-	}
-	conc1 <- DA
-	conc2 <- DB
-	if (is.null(conc1)) {
-		if (length(val)!=length(conc2)) {
-			if (length(val)%%length(conc2)==0) { conc2 <- rep(conc2,times=length(val)/length(conc2)) }
-			else if (length(conc2)%%length(val)==0) { val <- rep(val,times=length(conc2)/length(val)) }
-			else { stop("The length of the longer of inputs 'val' and 'conc2' is not a multiple of the length of the shorter.") }
-		}
-	} else {
-		if (length(val)!=length(conc1)) {
-			if (length(val)%%length(conc1)==0) { conc1 <- rep(conc1,times=length(val)/length(conc1)) }
-			else if (length(conc1)%%length(val)==0) { val <- rep(val,times=length(conc1)/length(val)) }
-			else { stop("The length of the longer of inputs 'val' and 'conc1' is not a multiple of the length of the shorter.") }
+			e0 <- erange[[2]]
+			ef <- erange[[1]]
 		}
 	}
-	concout <- rep(0,times=length(val))
-	incr <- sign(parv[10]-parv[7])
-	Eval <- (val-parv[7])/(parv[10]-val)
-	concout[which(incr*(val-parv[7])<=0)] <- 0
-	concout[which(incr*(val-parv[10])>=0)] <- Inf
-	cinds <- which(Eval>0)
-	Eval <- Eval[cinds]^(1/(parv[5]*sqrt(parv[3]*parv[4])))
-	if (is.null(conc1)) {
-		if (parv[9]==parv[10]) {
-			Bmod <- (conc2[cinds]/parv[2])^(sqrt(parv[4]/parv[3])/parv[5])
-		} else {
-			Bden <- 1+(1-((parv[9]-parv[7])/(parv[10]-parv[7])))*((conc2[cinds]/parv[2])^parv[4])
-			Bmod <- ((parv[9]-parv[7])/(parv[10]-parv[7]))*((conc2[cinds]/parv[2])^parv[4])
-			iinds <- which(is.infinite(Bden)|is.infinite(Bmod))
-			Bden[iinds] <- 1-(parv[9]-parv[7])/(parv[10]-parv[7])
-			Bmod[iinds] <- (parv[9]-parv[7])/(parv[10]-parv[7])
-			Bmod <- (Bmod/Bden)^(1/(parv[5]*sqrt(parv[3]*parv[4])))
-		}
-		if (parv[6]>=0) {
-			concout[cinds[which(Bmod>=Eval)]] <- 0
-			ccinds <- which(Bmod<Eval)
-		} else {
-			concout[cinds[which(Bmod>=Eval/(1-(parv[6]^2)/4))]] <- 0
-			ccinds <- which(Bmod<Eval/(1-(parv[6]^2)/4))
-		}
-		Bmod <- Bmod[ccinds]
-		Eval <- Eval[ccinds]
-		cinds <- cinds[ccinds]
-		Jval <- Eval+((parv[6]^2)/2-1)*Bmod
-		if (parv[6]!=0) { Jval <- Jval-parv[6]*sqrt(((parv[6]^2)/4-1)*Bmod^2+Eval*Bmod) }
-		Jval <- Jval^(parv[5]*sqrt(parv[3]*parv[4]))
-		if (parv[8]!=parv[10]) {
-			concout[cinds[which(Jval>=(parv[8]-parv[7])/(parv[10]-parv[8]))]] <- Inf
-			cinds <- cinds[which(Jval<(parv[8]-parv[7])/(parv[10]-parv[8]))]
-			Jval <- Jval[which(Jval<(parv[8]-parv[7])/(parv[10]-parv[8]))]
-		}
-		conc1c <- parv[1]*(Jval/((1+Jval)*(parv[8]-parv[7])/(parv[10]-parv[7])-Jval))^(1/parv[3])
-		concout[cinds] <- conc1c
-	} else {
-		if (parv[8]==parv[10]) {
-			Amod <- (conc1/parv[1])^(sqrt(parv[3]/parv[4])/parv[5])
-		} else {
-			Aden <- 1+(1-((parv[8]-parv[7])/(parv[10]-parv[7])))*((conc1/parv[1])^parv[3])
-			Amod <- ((parv[8]-parv[7])/(parv[10]-parv[7]))*((conc1/parv[1])^parv[3])
-			iinds <- which(is.infinite(Aden)|is.infinite(Amod))
-			Aden[iinds] <- 1-(parv[8]-parv[7])/(parv[10]-parv[7])
-			Amod[iinds] <- (parv[8]-parv[7])/(parv[10]-parv[7])
-			Amod <- (Amod/Aden)^(1/(parv[5]*sqrt(parv[3]*parv[4])))
-		}
-		if (parv[6]>=0) {
-			concout[cinds[which(Amod>=Eval)]] <- 0
-			ccinds <- which(Amod<Eval)
-		} else {
-			concout[cinds[which(Amod>=Eval/(1-(parv[6]^2)/4))]] <- 0
-			ccinds <- which(Amod<Eval/(1-(parv[6]^2)/4))
-		}
-		Amod <- Amod[ccinds]
-		Eval <- Eval[ccinds]
-		cinds <- cinds[ccinds]
-		Jval <- Eval+((parv[6]^2)/2-1)*Amod
-		if (parv[6]!=0) { Jval <- Jval-parv[6]*sqrt(((parv[6]^2)/4-1)*Amod^2+Eval*Amod) }
-		Jval <- Jval^(parv[5]*sqrt(parv[3]*parv[4]))
-		if (parv[9]!=parv[10]) {
-			concout[cinds[which(Jval>=(parv[9]-parv[7])/(parv[10]-parv[9]))]] <- Inf
-			cinds <- cinds[which(Jval<(parv[9]-parv[7])/(parv[10]-parv[9]))]
-			Jval <- Jval[which(Jval<(parv[9]-parv[7])/(parv[10]-parv[9]))]
-		}
-		conc2c <- parv[2]*(Jval/((1+Jval)*(parv[9]-parv[7])/(parv[10]-parv[7])-Jval))^(1/parv[4])
-		concout[cinds] <- conc2c
-	}
-	return(concout)
+
+	c(dcenter,e0,ef,ef,ef)
 }
 
-# (...,NA,NA,NA)                : All are varying, EAB >= EA,EB
-# (...,NA,NA,~) EAB=rmax(EA,EB) : EA and EB varying, EAB varies with maximum
-# (...,NA,NA,~) EAB>rmax(EA,EB) : EA and EB varying below fixed EAB
-# (...,NA,~,NA) EAB=EB>=EA      : EA varying below EAB and EB varying together
-# (...,NA,~,NA) EAB>EB;EAB>=EA  : EA varying, EB fixed EAB varying above EA and EB
-# (...,~,~,NA) EAB=EA=EB        : All three varying together
-# (...,~,~,NA) EAB=EA>EB        : EAB and EA varying together above EB
-# (...,~,~,NA) EAB>EA & EAB>EB  : EAB varying above fixed EA and EB
-# (...,NA,~,~) EAB=rmax(EA,EB)  : EA varying, EB fixed, EAB varies with maximum
-# (...,NA,~,~) EAB>EA;EAB>EB    : EA varying below fixed EAB, EB fixed
-# (...,~,~,~)                   : All three fixed
-fitBRAIDrsm <- function(conc1,conc2,act,def=NULL,fixed=NULL,llims=NULL,ulims=NULL) {
-	# Fill in 'fixed' and 'def'
-	if (is.null(fixed)) { tfixed <- c(1,2,3,4,6,7,8,9) }
-	else { tfixed <- fixed }
-	if (length(tfixed)!=10 || length(which(is.na(tfixed)))==0) {
-		if (is.character(tfixed)) {
-			if (tfixed=="kappa1") { fixinds <- c(1,2,3,4,6,7,10) }
-			else if (tfixed=="kappa2") { fixinds <- c(1,2,3,4,6,7,8,9) }
-			else if (tfixed=="delta1") { fixinds <- c(1,2,3,4,5,7,10) }
-			else if (tfixed=="delta2") { fixinds <- c(1,2,3,4,5,7,8,9) }
-			else if (tfixed=="kappa3") { fixinds <- c(1,2,3,4,6,7,8,9,10) }
-			else if (tfixed=="delta3") { fixinds <- c(1,2,3,4,5,7,8,9,10) }
-			else if (tfixed=="ebraid") { fixinds <- 1:10 }
-			else { stop(sprintf("Unknown model name '%s'.",tfixed)) }
+checkScenario <- function(scenario,model,links=NULL) {
+	scheck = switch(scenario,
+		   Z_1  = checkModelValues(model,c(FALSE, FALSE, FALSE, FALSE)),
+		   I_1  = checkModelValues(model,c(TRUE,  FALSE, FALSE, FALSE)),
+		   I_2  = checkModelValues(model,c(FALSE, FALSE, FALSE, TRUE )),
+		   I_3A = checkModelValues(model,c(FALSE, TRUE,  FALSE, FALSE)),
+		   I_3B = checkModelValues(model,c(FALSE, FALSE, TRUE,  FALSE)),
+		   I_4A = checkModelValues(model,c(FALSE, FALSE, FALSE, TRUE )),
+		   I_4B = checkModelValues(model,c(FALSE, FALSE, FALSE, TRUE )),
+		   I_5A = checkModelValues(model,c(FALSE, TRUE,  FALSE, FALSE)),
+		   I_5B = checkModelValues(model,c(FALSE, FALSE, TRUE,  FALSE)),
+		   I_7  = checkModelValues(model,c(FALSE, FALSE, FALSE, TRUE )),
+		   II_1  = checkModelValues(model,c(TRUE,  FALSE, FALSE, TRUE )),
+		   II_2A = checkModelValues(model,c(TRUE,  TRUE,  FALSE, FALSE)),
+		   II_2B = checkModelValues(model,c(TRUE,  FALSE, TRUE,  FALSE)),
+		   II_3A = checkModelValues(model,c(TRUE,  FALSE, FALSE, TRUE )),
+		   II_3B = checkModelValues(model,c(TRUE,  FALSE, FALSE, TRUE )),
+		   II_4A = checkModelValues(model,c(TRUE,  TRUE,  FALSE, FALSE)),
+		   II_4B = checkModelValues(model,c(TRUE,  FALSE, TRUE,  FALSE)),
+		   II_6  = checkModelValues(model,c(TRUE,  FALSE, FALSE, TRUE )),
+		   II_7A = checkModelValues(model,c(FALSE, TRUE,  FALSE, TRUE )),
+		   II_7B = checkModelValues(model,c(FALSE, FALSE, TRUE,  TRUE )),
+		   II_8  = checkModelValues(model,c(FALSE, TRUE,  TRUE,  FALSE)),
+		   II_9A = checkModelValues(model,c(FALSE, TRUE,  FALSE, TRUE )),
+		   II_9B = checkModelValues(model,c(FALSE, FALSE, TRUE,  TRUE )),
+		   II_10 = checkModelValues(model,c(FALSE, TRUE,  TRUE,  FALSE)),
+		   III_1A = checkModelValues(model,c(TRUE,  TRUE,  FALSE, TRUE )),
+		   III_1B = checkModelValues(model,c(TRUE,  FALSE, TRUE,  TRUE )),
+		   III_2  = checkModelValues(model,c(TRUE,  TRUE,  TRUE,  FALSE)),
+		   III_3A = checkModelValues(model,c(TRUE,  TRUE,  FALSE, TRUE )),
+		   III_3B = checkModelValues(model,c(TRUE,  FALSE, TRUE,  TRUE )),
+		   III_4  = checkModelValues(model,c(TRUE,  TRUE,  TRUE,  FALSE)),
+		   III_5  = checkModelValues(model,c(FALSE, TRUE,  TRUE,  TRUE )),
+		   IV_1 = checkModelValues(model,c(TRUE,  TRUE,  TRUE,  TRUE )),
+		   stop(sprintf("Unrecognized fitting scenario '%s'.",scenario))
+	)
+	if (!is.null(links)) { scheck <- scheck && links==getLinks(scenario) }
+	scheck
+}
+getLinks <- function(scenario) {
+	switch(scenario,
+		   Z_1  = "",
+		   I_1  = "",
+		   I_2  = "",
+		   I_3A = "",
+		   I_3B = "",
+		   I_4A = "A",
+		   I_4B = "B",
+		   I_5A = "F",
+		   I_5B = "F",
+		   I_7  = "AB",
+		   II_1  = "",
+		   II_2A = "",
+		   II_2B = "",
+		   II_3A = "A",
+		   II_3B = "B",
+		   II_4A = "F",
+		   II_4B = "F",
+		   II_6  = "AB",
+		   II_7A = "",
+		   II_7B = "",
+		   II_8  = "",
+		   II_9A = "B",
+		   II_9B = "A",
+		   II_10 = "F",
+		   III_1A = "",
+		   III_1B = "",
+		   III_2  = "",
+		   III_3A = "B",
+		   III_3B = "A",
+		   III_4  = "F",
+		   III_5  = "",
+		   IV_1 = "",
+		   stop(sprintf("Unrecognized fitting scenario '%s'.",scenario))
+	)
+}
+getScenario <- function(model,links) {
+	longlinks <- paste0("link",links)
+	if (6 %in% model) {
+		# E0 is varying
+		if (!any((7:9) %in% model)) {
+			# None of the maximal effects are varying freely
+			scenario <- "I_1"
+		} else if (all((7:9) %in% model)) {
+			# All of the maximal effects are varying freely
+			scenario <- "IV_1"
+		} else if (!(9 %in% model)) {
+			# Ef is not varying freely, at least one of EfA or EfB is
+			if (all((7:8) %in% model)) {
+				# EfA and EfB are varying freely
+				scenario <- switch(longlinks, linkF="III_4", link="III_2",
+								   linkA=stop("This 'links' value is not compatible with this model vector"),
+								   linkB=stop("This 'links' value is not compatible with this model vector"),
+								   linkAB=stop("This 'links' value is not compatible with this model vector"),
+								   stop(sprintf("Unsupported 'links' value '%s'.",links)))
+			} else if (7 %in% model) {
+				# EfA varies freely
+				scenario <- switch(longlinks, linkF="II_4A", link="II_2A",
+								   linkA=stop("This 'links' value is not compatible with this model vector"),
+								   linkB=stop("This 'links' value is not compatible with this model vector"),
+								   linkAB=stop("This 'links' value is not compatible with this model vector"),
+								   stop(sprintf("Unsupported 'links' value '%s'.",links)))
+			} else {
+				# EfB varies freely
+				scenario <- switch(longlinks, linkF="II_4B", link="II_2B",
+								   linkA=stop("This 'links' value is not compatible with this model vector"),
+								   linkB=stop("This 'links' value is not compatible with this model vector"),
+								   linkAB=stop("This 'links' value is not compatible with this model vector"),
+								   stop(sprintf("Unsupported 'links' value '%s'.",links)))
+			}
+		} else if (!any((7:8) %in% model)) {
+			# Ef is varying, EfA and EfB are not free
+			scenario <- switch(longlinks, linkAB="II_6", linkA="II_3A", linkB="II_3B", link="II_1",
+							   linkF=stop("This 'links' value is not compatible with this model vector"),
+							   stop(sprintf("Unsupported 'links' value '%s'.",links)))
 		} else {
-			if (length(which(is.na(tfixed)))>0) { stop("'NA' values are only permitted in raw 'fixed' vectors.") }
-			fixinds <- sort(unique(round(tfixed)))
-			if (min(fixinds)<1 || max(fixinds)>10) { stop("Indexed 'fixed' vectors may only contain values from 1 to 10.") }
-		}
-	} else { fixinds <- which(is.na(tfixed)) }
-	npar <- length(fixinds)
-	if (npar==0) { stop("At least one parameter must be allowed to vary.") }
-	if (is.null(def)) {
-		inds <- which(conc1+conc2>0)
-		sdef <- dr_start(conc1[inds]+conc2[inds],act[inds])
-		odef <- c(exp(sdef[4]),exp(sdef[4]),sdef[1],sdef[1],1,0,sdef[2],sdef[3],sdef[3],sdef[3])
-		if (length(tfixed)!=10 || length(which(is.na(tfixed)))==0) {
-			tfixed <- odef
-			tfixed[fixinds] <- NA
-		} else {
-			odef[which(!is.na(tfixed))] <- tfixed[which(!is.na(tfixed))]
-			if (odef[10]>odef[7] && !is.na(tfixed[10])) { odef[8:10] <- pmin(odef[8:10],tfixed[10]) }
-			else if (!is.na(tfixed[10])) { odef[8:10] <- pmax(odef[8:10],tfixed[10]) }
+			# Ef and one of EfA or EfB is varying, the other is not
+			if (7 %in% model) {
+				# EfA varies freely
+				scenario <- switch(longlinks, linkB="III_3A", link="III_1A",
+								   linkA=stop("This 'links' value is not compatible with this model vector"),
+								   linkAB=stop("This 'links' value is not compatible with this model vector"),
+								   linkF=stop("This 'links' value is not compatible with this model vector"),
+								   stop(sprintf("Unsupported 'links' value '%s'.",links)))
+			} else {
+				# EfB varies freely
+				scenario <- switch(longlinks, linkA="III_3B", link="III_1B",
+								   linkB=stop("This 'links' value is not compatible with this model vector"),
+								   linkAB=stop("This 'links' value is not compatible with this model vector"),
+								   linkF=stop("This 'links' value is not compatible with this model vector"),
+								   stop(sprintf("Unsupported 'links' value '%s'.",links)))
+			}
 		}
 	} else {
-		if (length(tfixed)!=10 || length(which(is.na(tfixed)))==0) {
-			if (length(def)==10) {
-				odef <- def
-				tfixed <- odef
-				tfixed[fixinds] <- NA
-			} else { stop("When using index vectors or model names for 'fixed', parameter 'def' must specify all 10 values.") }
-		} else {
-			if (length(def)==10) {
-				odef <- def
-				tfixed <- odef
-				tfixed[fixinds] <- NA
-			} else if (length(def)==npar) {
-				odef <- tfixed
-				odef[fixinds] <- def
-			} else { stop("Input 'def' must have as many values as free parameters or all parameter values (length 10).") }
-		}
-	}
-	fixed <- tfixed
-	isIncr <- sign(odef[10]-odef[7])
-	# medAct <- isIncr*min(max(isIncr*median(act),isIncr*odef[7]),min(isIncr*odef[8:10]))
-	medAct <- isIncr*(isIncr*odef[7]+min(isIncr*odef[8:10]))/2
-	
-	# Fill in lower limit values
-	if (is.null(llims)) { llims <- rep(NA,times=10) }
-	else {
-		if (length(llims)<10 && length(llims)!=npar) { stop("Improper length for lower limit vector.") }
-		else if (length(llims)<10) {
-			tllims <- rep(NA,times=10)
-			tllims[which(is.na(fixed))] <- llims
-			llims <- tllims
-		}
-	}
-	full_llims <- c(min(exp(-12),odef[1]/exp(3)),min(exp(-12),odef[2]/exp(3)),1/10,1/10,1/10,-1.999,0,0,0,0)
-	if (isIncr>0) { full_llims[7:8] <- c(2*odef[7]-odef[10],medAct+0.001) }
-	else if (isIncr<0) { full_llims[7:8] <- c(medAct+0.001,2*odef[10]-odef[7]) }
-	else { stop("Default limits must cover a non-zero width range.") }
-	full_llims[9:10] <- full_llims[8]
-	full_llims[which(!is.na(llims))] <- pmax(full_llims[which(!is.na(llims))],llims[which(!is.na(llims))])
-	full_llims[1] <- max(full_llims[1],exp(2*min(log(conc1[conc1>0]))-max(log(conc1[conc1>0]))))
-	full_llims[2] <- max(full_llims[2],exp(2*min(log(conc2[conc2>0]))-max(log(conc2[conc2>0]))))
-	odef[which(is.na(fixed))] <- pmax(odef,full_llims)[which(is.na(fixed))]
-	
-	# Fill in upper limit values
-	if (is.null(ulims)) { ulims <- rep(NA,times=10) }
-	else {
-		if (length(ulims)<10 && length(ulims)!=npar) { stop("Improper length for upper limit vector.") }
-		else if (length(ulims)<10) {
-			tulims <- rep(NA,times=10)
-			tulims[which(is.na(fixed))] <- ulims
-			ulims <- tulims
-		}
-	}
-	full_ulims <- c(max(1,odef[1]*exp(3)),max(1,odef[2]*exp(3)),10,10,10,100,0,0,0,0)
-	if (isIncr>0) { full_ulims[7:8] <- c(medAct-0.001,2*odef[10]-odef[7]) }
-	else { full_ulims[7:8] <- c(2*odef[7]-odef[10],medAct-0.001) }
-	full_ulims[9:10] <- full_ulims[8]
-	full_ulims[which(!is.na(ulims))] <- pmin(full_ulims[which(!is.na(ulims))],ulims[which(!is.na(ulims))])
-	full_ulims[1] <- min(full_ulims[1],exp(2*max(log(conc1[conc1>0]))-min(log(conc1[conc1>0]))))
-	full_ulims[2] <- min(full_ulims[2],exp(2*max(log(conc2[conc2>0]))-min(log(conc2[conc2>0]))))
-	odef[which(is.na(fixed))] <- pmin(odef,full_ulims)[which(is.na(fixed))]
-	
-	# Prepare parameter values and bounds for optimization
-	tdef <- odef
-	tdef[1:5] <- log(tdef[1:5])
-	full_llims[1:5] <- log(full_llims[1:5])
-	full_ulims[1:5] <- log(full_ulims[1:5])
-	if (is.na(fixed[10])) {
-		if (is.na(fixed[8])||is.na(fixed[9])) {
-			if (!is.na(fixed[8]) && odef[8]==odef[10]) {
-				tdef[10] <- tdef[10]-tdef[9]
-				if (isIncr>0) {
-					full_llims[10] <- 0
-					full_ulims[10] <- full_ulims[10]-tdef[9]
-				} else {
-					full_llims[10] <- full_llims[10]-tdef[7]
-					full_ulims[10] <- 0
-				}
-			} else if (!is.na(fixed[9]) && odef[9]==odef[10]) {
-				tdef[10] <- tdef[10]-tdef[8]
-				if (isIncr>0) {
-					full_llims[10] <- 0
-					full_ulims[10] <- full_ulims[10]-tdef[8]
-				} else {
-					full_llims[10] <- full_llims[10]-tdef[8]
-					full_ulims[10] <- 0
-				}
+		# E0 is fixed
+		if (!any((7:9) %in% model)) {
+			# None of the maximal effects are varying freely
+			scenario <- "Z_1"
+		} else if (all((7:9) %in% model)) {
+			# All of the maximal effects are varying freely
+			scenario <- "III_5"
+		} else if (!(9 %in% model)) {
+			# Ef is not varying freely, at least one of EfA or EfB is
+			if (all((7:8) %in% model)) {
+				# EfA and EfB are varying freely
+				scenario <- switch(longlinks, linkF="II_10", link="II_8",
+								   linkA=stop("This 'links' value is not compatible with this model vector"),
+								   linkB=stop("This 'links' value is not compatible with this model vector"),
+								   linkAB=stop("This 'links' value is not compatible with this model vector"),
+								   stop(sprintf("Unsupported 'links' value '%s'.",links)))
+			} else if (7 %in% model) {
+				# EfA varies freely
+				scenario <- switch(longlinks, linkF="I_5A", link="I_3A",
+								   linkA=stop("This 'links' value is not compatible with this model vector"),
+								   linkB=stop("This 'links' value is not compatible with this model vector"),
+								   linkAB=stop("This 'links' value is not compatible with this model vector"),
+								   stop(sprintf("Unsupported 'links' value '%s'.",links)))
 			} else {
-				tdef[10] <- tdef[10]-isIncr*max(isIncr*tdef[8:9])
-				if (isIncr>0) {
-					full_llims[10] <- 0
-					full_ulims[10] <- full_ulims[10]-isIncr*max(isIncr*tdef[8:9])
-				} else {
-					full_llims[10] <- full_llims[10]-isIncr*max(isIncr*tdef[8:9])
-					full_ulims[10] <- 0
-				}
+				# EfB varies freely
+				scenario <- switch(longlinks, linkF="I_5B", link="I_3B",
+								   linkA=stop("This 'links' value is not compatible with this model vector"),
+								   linkB=stop("This 'links' value is not compatible with this model vector"),
+								   linkAB=stop("This 'links' value is not compatible with this model vector"),
+								   stop(sprintf("Unsupported 'links' value '%s'.",links)))
 			}
+		} else if (!any((7:8) %in% model)) {
+			# Ef is varying, EfA and EfB are not free
+			scenario <- switch(longlinks, linkAB="I_7", linkA="I_4A", linkB="I_4B", link="I_2",
+							   linkF=stop("This 'links' value is not compatible with this model vector"),
+							   stop(sprintf("Unsupported 'links' value '%s'.",links)))
 		} else {
-			if (odef[8]!=odef[10]) {
-				if (isIncr>0) { full_llims[10] <- max(full_llims[10],odef[8]) }
-				else { full_ulims[10] <- min(full_ulims[10],odef[8]) }
-			}
-			if (odef[9]!=odef[10]) {
-				if (isIncr>0) { full_llims[10] <- max(full_llims[10],odef[9]) }
-				else { full_ulims[10] <- min(full_ulims[10],odef[9]) }
-			}
-		}
-	} else if (isIncr*odef[10]>max(isIncr*odef[8:9])) {
-		if (isIncr>0) { full_ulims[8:9] <- pmin(full_ulims[8:9],odef[10]) }
-		else { full_llims[8:9] <- pmax(full_llims[8:9],odef[10]) }
-	}
-	llims <- full_llims[which(is.na(fixed))]
-	ulims <- full_ulims[which(is.na(fixed))]
-	
-	parv2fullpar <- function(parv) {
-		fullpar <- tdef
-		fullpar[which(is.na(fixed))] <- parv
-		fullpar[1:5] <- exp(fullpar[1:5])
-		if (is.na(fixed[10])) {
-			if (is.na(fixed[8])||is.na(fixed[9])) {
-				if (!is.na(fixed[8]) && odef[8]==odef[10]) { 
-					fullpar[10] <- fullpar[10]+fullpar[9]
-					fullpar[8] <- fullpar[10]
-				} else if (!is.na(fixed[9]) && odef[9]==odef[10]) {
-					fullpar[10] <- fullpar[10]+fullpar[8]
-					fullpar[9] <- fullpar[10]
-				} else { fullpar[10] <- fullpar[10]+isIncr*max(isIncr*fullpar[8:9]) }
+			# Ef and one of EfA or EfB is varying, the other is not
+			if (7 %in% model) {
+				# EfA varies freely
+				scenario <- switch(longlinks, linkB="II_9A", link="II_7A",
+								   linkA=stop("This 'links' value is not compatible with this model vector"),
+								   linkAB=stop("This 'links' value is not compatible with this model vector"),
+								   linkF=stop("This 'links' value is not compatible with this model vector"),
+								   stop(sprintf("Unsupported 'links' value '%s'.",links)))
 			} else {
-				if (odef[8]==odef[10]) { fullpar[8] <- fullpar[10] }
-				if (odef[9]==odef[10]) { fullpar[9] <- fullpar[10] }
-			}
-		} else if (is.na(fixed[8]) && is.na(fixed[9])) {
-			if (odef[10]==isIncr*max(isIncr*odef[8:9])) { fullpar[10] <- isIncr*max(isIncr*fullpar[8:9]) }
-		} else if (is.na(fixed[8]) && ((odef[8]==odef[10]&&isIncr*fullpar[8]>=isIncr*fullpar[9])
-							|| isIncr*fullpar[8]>isIncr*odef[10])) { fullpar[10] <- fullpar[8] }
-		else if (is.na(fixed[9]) && ((odef[9]==odef[10]&&isIncr*fullpar[9]>=isIncr*fullpar[8])
-							|| isIncr*fullpar[9]>isIncr*odef[10])) { fullpar[10] <- fullpar[9] }
-		return(fullpar)
-	}
-	parvRSMErr <- function(parv) {
-		fullpar <- parv2fullpar(parv)
-		ei <- evalBRAIDrsm(conc1,conc2,fullpar)
-		err <- ei-act
-		return(sum(err^2))
-	}
-	parvRSMDerivs <- function(parv) {
-		fullpar <- parv2fullpar(parv)
-		ederivs <- evalBRAIDrsm_int(conc1,conc2,fullpar,fixed=fixed,calcderivs=TRUE)
-		err <- ederivs[,1]-act
-		for (i in 1:5) { ederivs[,i+1] <- fullpar[i]*ederivs[,i+1] }
-		if (is.na(fixed[10]) && (is.na(fixed[8])||is.na(fixed[9]))) {
-			if (!is.na(fixed[8]) && odef[8]==odef[10]) { ederivs[,11] <- ederivs[,11]-ederivs[,10] }
-			else if (!is.na(fixed[9]) && odef[9]==odef[10]) { ederivs[,11] <- ederivs[,11]-ederivs[,9] }
-			else {
-				if (isIncr*fullpar[8]>=isIncr*fullpar[9]) { ederivs[,11] <- ederivs[,11]-ederivs[,9] }
-				else { ederivs[,11] <- ederivs[,11]-ederivs[,10] }
+				# EfB varies freely
+				scenario <- switch(longlinks, linkA="II_9B", link="II_7B",
+								   linkB=stop("This 'links' value is not compatible with this model vector"),
+								   linkAB=stop("This 'links' value is not compatible with this model vector"),
+								   linkF=stop("This 'links' value is not compatible with this model vector"),
+								   stop(sprintf("Unsupported 'links' value '%s'.",links)))
 			}
 		}
-		oderivs <- rep(0,times=10)
-		for (i in 1:10) { oderivs[i] <- 2*sum(err*ederivs[,i+1]) }
-		oderivs <- oderivs[which(is.na(fixed))]
-		return(oderivs)
 	}
-	
-	escale <- max(abs(odef[5]-odef[9]),abs(odef[6]-odef[9]),abs(odef[10]-odef[9]))
-	parscale <- c(1,1,1,1,1,1,0.1*escale,0.1*escale,0.1*escale,0.1*escale)
-	control <- list(maxit=500,parscale=parscale[which(is.na(fixed))])
-	nls <- optim(tdef[which(is.na(fixed))],parvRSMErr,parvRSMDerivs,method="L-BFGS-B",
-					lower=llims,upper=ulims,hessian=FALSE,control=control)
-	nls$fullpar <- parv2fullpar(nls$par)
-	nls$fixed <- fixed
-	nls$odef <- odef
-	full_llims <- parv2fullpar(llims)
-	llims <- full_llims[which(is.na(fixed))]
-	full_ulims <- parv2fullpar(ulims)
-	ulims <- full_ulims[which(is.na(fixed))]
-	nls$mlims <- rbind(llims,ulims)
-	return(nls)
+
+	getScenarioFunction(scenario)
+}
+getScenarioFunction <- function(scenario) {
+	switch(scenario,
+		   Z_1  = fitBraidScenario_Z_1,
+		   I_1  = fitBraidScenario_I_1,
+		   I_2  = fitBraidScenario_I_2,
+		   I_3A = fitBraidScenario_I_3A,
+		   I_3B = fitBraidScenario_I_3B,
+		   I_4A = fitBraidScenario_I_4A,
+		   I_4B = fitBraidScenario_I_4B,
+		   I_5A = fitBraidScenario_I_5A,
+		   I_5B = fitBraidScenario_I_5B,
+		   I_7  = fitBraidScenario_I_7,
+		   II_1  = fitBraidScenario_II_1,
+		   II_2A = fitBraidScenario_II_2A,
+		   II_2B = fitBraidScenario_II_2B,
+		   II_3A = fitBraidScenario_II_3A,
+		   II_3B = fitBraidScenario_II_3B,
+		   II_4A = fitBraidScenario_II_4A,
+		   II_4B = fitBraidScenario_II_4B,
+		   II_6  = fitBraidScenario_II_6,
+		   II_7A = fitBraidScenario_II_7A,
+		   II_7B = fitBraidScenario_II_7B,
+		   II_8  = fitBraidScenario_II_8,
+		   II_9A = fitBraidScenario_II_9A,
+		   II_9B = fitBraidScenario_II_9B,
+		   II_10 = fitBraidScenario_II_10,
+		   III_1A = fitBraidScenario_III_1A,
+		   III_1B = fitBraidScenario_III_1B,
+		   III_2  = fitBraidScenario_III_2,
+		   III_3A = fitBraidScenario_III_3A,
+		   III_3B = fitBraidScenario_III_3B,
+		   III_4  = fitBraidScenario_III_4,
+		   III_5  = fitBraidScenario_III_5,
+		   IV_1 = fitBraidScenario_IV_1,
+		   stop(sprintf("Unrecognized fitting scenario '%s'.",scenario))
+	)
+}
+
+fillParameterBounds <- function(llims,ulims,model,concs,start=NULL) {
+	if (isBraidParameter(start)) { start <- fillOutBraidPar(start) }
+	else { start <- NULL }
+
+	conc1 <- concs[,1]
+	crng1 <- range(conc1[conc1>0 & is.finite(conc1)])
+	conc2 <- concs[,2]
+	crng2 <- range(conc2[conc2>0 & is.finite(conc2)])
+	dllims <- c(exp((1.5*log(crng1[1])-0.5*log(crng1[2]))),exp((1.5*log(crng2[1])-0.5*log(crng2[2]))),0.1,0.1,-1.96)
+	dulims <- c(exp((1.5*log(crng1[2])-0.5*log(crng1[1]))),exp((1.5*log(crng2[2])-0.5*log(crng2[1]))),10,10,100)
+
+	if (is.null(llims)) { llims <- rep(NA,length(model)) }
+	else if (length(model)<9 & length(llims)==9) { llims <- llims[model] }
+	if (is.null(ulims)) { ulims <- rep(NA,length(model)) }
+	else if (length(model)<9 & length(ulims)==9) { ulims <- ulims[model] }
+	if (any(c(length(llims),length(ulims))!=length(model))) {
+		stop("Upper and lower bounding vectors must be full length (length 9) or the same length as the number of free parameters.")
+	}
+
+	for (i in 1:4) {
+		if (!(i%in%model)) { next }
+		ci <- which(model==i)
+		if (is.null(start)) {
+			if (!is.finite(log(llims[[ci]]))) { llims[[ci]] <- dllims[[i]] }
+			if (!is.finite(log(ulims[[ci]]))) { ulims[[ci]] <- dulims[[i]] }
+		} else {
+			if (!is.finite(log(llims[[ci]]))) { llims[[ci]] <- min(start[[i]],dllims[[i]]) }
+			if (!is.finite(log(ulims[[ci]]))) { ulims[[ci]] <- max(start[[i]],dulims[[i]]) }
+		}
+	}
+	if (5 %in% model) {
+		ci <- which(model==5)
+		if (is.null(start)) {
+			if (!is.finite(log(llims[[ci]]+2))) { llims[[ci]] <- dllims[[5]] }
+			if (!is.finite(log(ulims[[ci]]+2))) { ulims[[ci]] <- dulims[[5]] }
+		} else {
+			if (!is.finite(log(llims[[ci]]+2))) { llims[[ci]] <- min(start[[5]],dllims[[5]]) }
+			if (!is.finite(log(ulims[[ci]]+2))) { ulims[[ci]] <- max(start[[5]],dulims[[5]]) }
+		}
+	}
+	for (i in 6:9) {
+		if (!i%in%model) { next }
+		ci <- which(model==i)
+		if (is.na(llims[[ci]])) { llims[[ci]] <- -Inf }
+		if (is.na(ulims[[ci]])) { ulims[[ci]] <- Inf }
+	}
+	return(rbind(llims,ulims))
+}
+coerceLinks <- function(par,links) {
+	if (links=="") { return(par) }
+	if (links=="F") {
+		incr <- sign((par[[7]]+par[[8]])/2-par[[6]])
+		par[[9]] <- incr*max(incr*par[7:8])
+	} else if (links=="A") { par[[7]] <- par[[9]] }
+	else if (links=="B") { par[[8]] <- par[[9]] }
+	else { par[7:8] <- par[[9]] }
+	return(par)
+}
+checkLinks <- function(par,links) {
+	if (links=="") { return(TRUE) }
+	if (links=="F") {
+		incr <- sign((par[[7]]+par[[8]])/2-par[[6]])
+		return(par[[9]]==incr*max(incr*par[7:8]))
+	}
+	return(switch(links,
+				  A=(par[[7]]==par[[9]]),
+				  B=(par[[8]]==par[[9]]),
+				  AB=(par[[7]]==par[[9]]&&par[[8]]==par[[9]]),
+				  TRUE))
+}
+
+isBraidParameter <- function(par) {
+	is.numeric(par) && (length(par)>=7) && (length(par)<=9)
 }

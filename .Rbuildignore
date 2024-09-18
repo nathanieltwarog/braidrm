@@ -1,0 +1,9 @@
+^braidrm\.Rproj$
+^\.Rproj\.user$
+^LICENSE\.md$
+^vignettes/articles$
+^_pkgdown\.yml$
+^docs$
+^pkgdown$
+^README\.Rmd$
+^data-raw$

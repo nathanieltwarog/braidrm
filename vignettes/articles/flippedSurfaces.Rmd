@@ -1,0 +1,297 @@
+---
+title: "Flipped BRAID Surfaces"
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup, include = FALSE}
+library(braidrm)
+library(braidReports)
+library(tidyverse)
+```
+
+## Introduction
+
+Though versatile, the BRAID response surface model makes certain qualitative 
+assumptions about the behavior of the agents modeled.  Specifically, it assumes
+that both agents produce a measureable effect and that that effect is in the 
+same direction and greater for higher doses.  Yet many potential compound
+behaviors cannot be molded to this form.  Fortunately, with some fairly simple
+manipulations, the BRAID fitting tools can be used to describe a much wider
+range of compound behaviors. *Note: this article makes use of both the* `braidReports` 
+*package for visualization and the* `tidyverse` *package to make the code more*
+*easily readable. Neither is a required dependency of the* `braidrm` *package,*
+*though* `braidReports` *is strongly suggested.*
+
+## Motivation
+
+The code below shows us two views of the same BRAID additive response surface.
+The first view, in which concentrations are plotted on a linear scale, is more
+effective at showing the qualitative behavior of the surface, in particular
+the additive behavior of the two compounds.  The second, in which concentrations
+are plotted on a logarithmic scale, is more typical of the view afforded by
+combination experiments, and highlights the mathematical behavior of the BRAID
+model.  Effectively, the model divides the space of doses into four quadrants,
+depending on whether the first dose lies above or below ${ID}_{M,A}$ and whether
+the second dose lies above or below ${ID}_{M,B}$.  The values in these four
+quadrants approach the four effect parameters ($E_0$, $E_{f,A}$, $E_{f,B}$ and
+$E_f$), with the sharpness and shape of the transition governed by $n_a$, $n_b$,
+and $\kappa$.
+
+```{r}
+linearConcs <- seq(0,3,length=51)
+logConcs <- exp(seq(log(0.1),log(10),length=51))
+
+linearSurface <- expand_grid(concA=linearConcs,concB=linearConcs) %>%
+	mutate(standard=evalBraidModel(concA,concB,c(1,1,3,3,0,0,1,1,1)))
+logSurface <- expand_grid(concA=logConcs,concB=logConcs) %>%
+	mutate(standard=evalBraidModel(concA,concB,c(1,1,3,3,0,0,1,1,1)))
+
+ggplot(linearSurface,aes(x=concA,y=concB)) +
+	geom_raster(aes(fill=standard)) +
+	scale_fill_distiller(palette="RdYlBu",direction=-1) +
+	geom_contour(aes(z=standard),breaks=seq(0.1,0.9,by=0.1),
+				 colour="black",linetype=2)+
+	labs(x="Concentration A",
+		 y="Concentration B",
+		 fill="Effect",
+		 title="Standard Surface (linear)")+
+	coord_equal()
+ggplot(logSurface,aes(x=concA,y=concB)) +
+	geom_raster(aes(fill=standard)) +
+	scale_fill_distiller(palette="RdYlBu",direction=-1) +
+	geom_contour(aes(z=standard),breaks=seq(0.1,0.9,by=0.1),
+				 colour="black",linetype=2)+
+	scale_x_log10()+
+	scale_y_log10()+
+	labs(x="Concentration A",
+		 y="Concentration B",
+		 fill="Effect",
+		 title="Standard Surface (logarithmic)")+
+	coord_equal()
+
+```
+
+If we were to negate the Hill slope $n_a$ in the BRAID equation, the effect 
+would be to treat dose pairs below ${ID}_{M,A}$ like dose pairs above
+${ID}_{M,B}$, and vice versa.  In essence, this flips the response surface
+along the drug A axis, around the center ${ID}_{M,A}$; this is implemented
+in the `braidrm` package using the `evalFlippedBraidModel()` function.
+
+```{r}
+linearSurface <- linearSurface %>%
+	mutate(protective=evalFlippedBraidModel(concA,concB,
+											c(1,1,3,3,0,1,0,1,1),
+											flip="A"))
+logSurface <- logSurface %>%
+	mutate(protective=evalFlippedBraidModel(concA,concB,
+											c(1,1,3,3,0,1,0,1,1),
+											flip="A"))
+
+ggplot(logSurface,aes(x=concA,y=concB)) +
+	geom_raster(aes(fill=protective)) +
+	scale_fill_distiller(palette="RdYlBu",direction=1) +
+	geom_contour(aes(z=protective),breaks=seq(0.1,0.9,by=0.1),
+				 colour="black",linetype=2)+
+	scale_x_log10()+
+	scale_y_log10()+
+	labs(x="Concentration A",
+		 y="Concentration B",
+		 fill="Effect",
+		 title="Protective Surface (logarithmic)")+
+	coord_equal()
+ggplot(linearSurface,aes(x=concA,y=concB)) +
+	geom_raster(aes(fill=protective)) +
+	scale_fill_distiller(palette="RdYlBu",direction=1) +
+	geom_contour(aes(z=protective),breaks=seq(0.1,0.9,by=0.1),
+				 colour="black",linetype=2)+
+	labs(x="Concentration A",
+		 y="Concentration B",
+		 fill="Effect",
+		 title="Protective Surface (linear)")+
+	coord_equal()
+```
+
+This simple manipulation produces a surface that is qualitatively very 
+different from the original.  It might be described as a surface in which one
+drug (the first, in this case) produces an inhibitory effect, dropping the
+measured value from 1 to 0; and in which the second drug, though having no 
+effect of its own, inhibits or protects against the effects of the first.  We
+call this a "protective" surface.
+
+Another qualitative shift can be observed when the surface is flipped along
+both dimensions.  The resulting surface shows no effect from either drug alone,
+but shows a pronounced effect when both compounds are present, a behavior we
+refer to as "coactive".
+
+```{r}
+linearSurface <- linearSurface %>%
+	mutate(coactive=evalFlippedBraidModel(concA,concB,
+											c(1,1,3,3,0,1,1,1,0),
+											flip="both"))
+logSurface <- logSurface %>%
+	mutate(coactive=evalFlippedBraidModel(concA,concB,
+											c(1,1,3,3,0,1,1,1,0),
+											flip="both"))
+
+ggplot(logSurface,aes(x=concA,y=concB)) +
+	geom_raster(aes(fill=coactive)) +
+	scale_fill_distiller(palette="RdYlBu",direction=1) +
+	geom_contour(aes(z=coactive),breaks=seq(0.1,0.9,by=0.1),
+				 colour="black",linetype=2)+
+	scale_x_log10()+
+	scale_y_log10()+
+	labs(x="Concentration A",
+		 y="Concentration B",
+		 fill="Effect",
+		 title="Coactive Surface (logarithmic)")+
+	coord_equal()
+ggplot(linearSurface,aes(x=concA,y=concB)) +
+	geom_raster(aes(fill=coactive)) +
+	scale_fill_distiller(palette="RdYlBu",direction=1) +
+	geom_contour(aes(z=coactive),breaks=seq(0.1,0.9,by=0.1),
+				 colour="black",linetype=2)+
+	labs(x="Concentration A",
+		 y="Concentration B",
+		 fill="Effect",
+		 title="Coactive Surface (linear)")+
+	coord_equal()
+```
+
+Such atypical response surfaces, though less common than the classical model,
+arise in a wide range of circumstances, and are just as critical to model and
+quantify.  `braidrm` therefore includes several functions for evaluating,
+manipulating, and fitting such surfaces.
+
+## Protective Surfaces
+
+The included data object `protectiveExample` includes surface in which drug A
+produces a prounounced and potent effect, which is then suppressed at high
+concentrations by the otherwise inactive drug B; a behavior we refer to as
+"protective".  The function `fitProtectiveBraid_A()` fits a model in which drug
+A is active, but inhibited by compound B.  We see that the resulting parameters
+summarize the behavior seen, and the resulting fit surface matches the data
+closely.
+
+```{r, warning=FALSE}
+measured <- protectiveExample
+
+ggplot(measured,aes(x=concA,y=concB)) +
+	geom_braid(aes(fill=measure))+
+	scale_fill_distiller(palette="RdYlBu",direction=-1) +
+	scale_x_log10()+
+	scale_y_log10()+
+	labs(x="Concentration A",
+		 y="Concentration B",
+		 fill="Effect",
+		 title="Measured Surface")+
+	coord_equal()
+
+protectiveFit <- fitProtectiveBraid_A(measure ~ concA + concB, measured,
+									  getCIs=FALSE)
+
+measured$fit <- fitted(protectiveFit)
+
+ggplot(measured,aes(x=concA,y=concB)) +
+	geom_braid(aes(fill=fit))+
+	scale_fill_distiller(palette="RdYlBu",direction=-1) +
+	scale_x_log10()+
+	scale_y_log10()+
+	labs(x="Concentration A",
+		 y="Concentration B",
+		 fill="Effect",
+		 title="Fit Surface")+
+	coord_equal()
+
+coef(protectiveFit)
+```
+
+## Oppositional Surfaces
+
+The `oppositionalExample` object contains a response surface in which drug A
+produces an excitatory effect (from 0 to 1), while drug B produces an effect in
+the opposite direction. Though the effect of drug A dominates at higher
+concentrations, the surface does not conform to the traditional assumptions of
+the BRAID model.  The function `fitOppositionalBraid_A()` fits a flipped model
+in which the two drugs produce effects in opposite directions, with the effect
+of drug A taking over at the highest concentrations.
+
+```{r, warning=FALSE}
+measured <- oppositionalExample
+
+ggplot(measured,aes(x=concA,y=concB)) +
+	geom_braid(aes(fill=measure))+
+	scale_fill_distiller(palette="RdYlBu",direction=-1) +
+	scale_x_log10()+
+	scale_y_log10()+
+	labs(x="Concentration A",
+		 y="Concentration B",
+		 fill="Effect",
+		 title="Measured Surface")+
+	coord_equal()
+
+oppositionalFit <- fitOppositionalBraid_A(measure ~ concA + concB, measured,
+									  getCIs=FALSE)
+
+measured$fit <- fitted(oppositionalFit)
+
+ggplot(measured,aes(x=concA,y=concB)) +
+	geom_braid(aes(fill=fit))+
+	scale_fill_distiller(palette="RdYlBu",direction=-1) +
+	scale_x_log10()+
+	scale_y_log10()+
+	labs(x="Concentration A",
+		 y="Concentration B",
+		 fill="Effect",
+		 title="Fit Surface")+
+	coord_equal()
+
+coef(oppositionalFit)
+```
+
+## Coactive Surfaces
+
+Finally, the `coactiveExample` object depicts a response surface in which
+neither drug produces a noticeable effect in isolation, but the combined effect
+when both are present is very pronounced.  Such "coactive" surfaces can be fit
+by two functions: `fitCoactiveBraid_pure()` which holds that neither agent has
+any measurable effect in isolation, and `fitCoactiveBraid_partial()`, which
+allows either agent to have small partial effects.
+
+```{r, warning=FALSE}
+measured <- coactiveExample
+
+ggplot(measured,aes(x=concA,y=concB)) +
+	geom_braid(aes(fill=measure))+
+	scale_fill_distiller(palette="RdYlBu",direction=-1) +
+	scale_x_log10()+
+	scale_y_log10()+
+	labs(x="Concentration A",
+		 y="Concentration B",
+		 fill="Effect",
+		 title="Measured Surface")+
+	coord_equal()
+
+coactiveFit <- fitCoactiveBraid_pure(measure ~ concA + concB, measured,
+									  getCIs=FALSE)
+
+measured$fit <- fitted(coactiveFit)
+
+ggplot(measured,aes(x=concA,y=concB)) +
+	geom_braid(aes(fill=fit))+
+	scale_fill_distiller(palette="RdYlBu",direction=-1) +
+	scale_x_log10()+
+	scale_y_log10()+
+	labs(x="Concentration A",
+		 y="Concentration B",
+		 fill="Effect",
+		 title="Fit Surface")+
+	coord_equal()
+
+coef(coactiveFit)
+```

@@ -1,0 +1,339 @@
+---
+title: "Additional Approaches"
+output: rmarkdown::html_vignette
+bibliography: "braid.bib"
+vignette: >
+  %\VignetteIndexEntry{Additional Approaches}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup, include=FALSE}
+library(braidrm)
+```
+
+## Introduction
+
+This will come as no surprise to anyone who has performed even a cursory review
+of the literature, but BRAID it *not* the only approach available for
+combination analysis.  The debate over the best methods and standards for 
+quantifying drug combinations goes back nearly 100 years, and has yet to be
+truly resolved.  And while we (unsurprisingly) feel that the BRAID method is 
+the best method for comprehending combined action overall, we can certainly 
+acknowledge that many circumstances call for a different approach. So we have
+tried, with the `braidrm` package, to include a set of tools for quantifying
+drug combinations using many of the most popular approaches available.  These
+are certainly not the only implementations of these metrics and models, but it
+is our hope that they are still sufficiently flexible to be of use.
+
+## Response Surface Methods
+
+Though it is the model that we have found to be the most effective as an 
+analytical tool, BRAID is not the only response surface method in the
+combination analysis space.  The `braidrm` package includes implementations of
+two other parametric response surface models, one which predates BRAID by about
+25 years, and one that followed it.
+
+### The URSA Model
+
+The universal response surface approach (URSA) was proposed by Greco, Park, and
+Rustum [-@Greco1990] as an early attempt to numerically fit a quantitative model of
+synergy and antagonism to measured data.  Like BRAID, it used pharmacological
+additivity as its basis, but unlike BRAID it hewed more closely to the precise
+concept of Loewe additivity.  They started with the observation that in a Loewe
+additive surface the following relation always holds:
+
+$$
+1 = \frac{D_A}{{ID}_{X,A}} + \frac{D_B}{{ID}_{X,B}}
+$$
+
+where ${ID}_{X,A}$ and ${{ID}_{X,B}}$ are the doses of drug A and drug B that
+produce the same effect in isolation that the drug combination of $D_A$ and
+$D_B$ produce together.  When the individual combinations are assumed to follow
+a standard Hill model, this can be written more explicilty (if more 
+cumbersomely) as:
+
+$$
+1 = \frac{D_A}{{ID}_{M,A}\left(\frac{E-E_0}{E_f-E}\right)^{1/n_a}} + 
+\frac{D_B}{{ID}_{M,B}\left(\frac{E-E_0}{E_f-E}\right)^{1/n_b}}
+$$
+
+The URSA model generalized this relationship to allow for synergistic and
+antagonistic interactions by adding an interaction term that is *very nearly*
+a classic product term:
+
+$$
+1 = \frac{D_A}{{ID}_{M,A}\left(\frac{E-E_0}{E_f-E}\right)^{1/n_a}} + 
+\frac{D_B}{{ID}_{M,B}\left(\frac{E-E_0}{E_f-E}\right)^{1/n_b}} +
+\alpha\frac{D_AD_B}{{ID}_{M,A}{ID}_{M,B}\left(\frac{E-E_0}{E_f-E}\right)^{1/{2n_a}}\left(\frac{E-E_0}{E_f-E}\right)^{1/{2n_b}}}
+$$
+
+When $alpha$ is positive, less of both doses is needed to sum to a full 1, so
+lower combined doses produce the same effect, resulting in synergy.  When
+$alpha$ is negative, the doses must be increased to reach the full value of 1,
+resulting in antagonism.
+
+The URSA model can be fit to combination data using the `fitUrsaModel()`
+function:
+
+```{r}
+ufit1 <- fitUrsaModel(measure ~ concA+concB, additiveExample)
+coef(ufit1)
+
+ufit2 <- fitUrsaModel(measure ~ concA+concB, synergisticExample)
+coef(ufit2)
+
+ufit3 <- fitUrsaModel(measure ~ concA+concB, antagonisticExample)
+coef(ufit3)
+```
+
+Encouraginly, the URSA model fits the additive surface with an $alpha$ near 0,
+the synergistic surface with a clearly positive $alpha$ and the antagonistic
+surface with a negative $alpha$.  However, the modle does suffer some 
+significiant limitations.
+
+Because it is an extension of Loewe additivity, it is hindered by the same
+constraints, most notably that the maximal effects of both drugs must be 
+identical for surface to be definable at all.  Further, because URSA, like
+Loewe additivity, is defined by an insoluble *implicit* equation, evaluation of
+the surface is necessarily a numerical approximation, which is both slow and
+difficult to extend to other tasks that require derivatives.  Finally, while we
+have included antagonistic URSA surfaces (with $alpha$ ranging down to $-1$), 
+the product term in the URSA equation actually produces undefined values at
+high doses for *any* negative $alpha$ value, so predictions of the model at
+high doses should be treated with caution.
+
+### The MuSyC Model
+
+Proposed much more recently, the Multidimensional Synergy of Combinations (or
+MuSyC) model of Wooten *et al.* [-@Wooten2021] is a beautifully versatile
+response surface model that can be fit with up to twelve free parameters in its
+most flexible form.  Though it is described as a synthesis of all competing 
+methods, it is best understood as an extension of the principles of Bliss
+independence (albeit a very significant generalization of Bliss surfaces). The
+model treats a combined therapy as a four-state system, in which the measured
+target (cells, organisms, bound proteins, etc.) transitions between the four
+states as a function of the two drug concentrations.  The four states are:
+
+* $U$: Targets unaffected by either drug
+* $A_1$ Targets affected by drug 1, but not drug 2
+* $A_2$: Targets affected by drug 2, but not drug 1
+* $A_{12}$: Targets affected by both drugs
+
+Each of these states produces a distinct level of the measured effect, and the
+overal measured effect is a weight average of those four governed by the
+relative occupancy of the four states.  The simplest form would simply assume
+that any affected state would produce a 100% effect, so the measured effect 
+would simply be the total proportion of targest that are affected in any way; 
+but the strength of the MuSyC models is that each of these values can be 
+numerically varied to produce a much wider range of observed behaviors,
+inlcuding partial and observed behaviors.
+
+Interaction in the combination is modeled in several ways.  First, because the
+effect level measured in state $A_{12}$ can differ from the maximal effects 
+resulting from either drug, the combinatoin can have a higher (or even lower)
+maximal effect than the individual agents.  Wooten *et al.* refer to this as
+"efficacy synergy", and while it can be included in the full BRAID model, it
+is much less a component of traditional BRAID analysis.  Second, because the
+pharmacological transitions induced by each drug can differ depending on 
+whether they are already affected by the other drug, the effect of one drug
+can potentiate the effect of the other; a phenomenon Wooten *et al.* refer to
+as "potency synergy".  (It is also possible for the effect of one drug to alter
+the *Hill slope* of the other, but this is much more difficult to analyze, and
+is usually not included.)
+
+Similar to URSA, the MuSyC model can be fit to combination data using the
+`fitMusycModel()` function:
+
+```{r}
+mfit1 <- fitMusycModel(measure ~ concA+concB, additiveExample)
+coef(mfit1)
+
+mfit2 <- fitMusycModel(measure ~ concA+concB, synergisticExample)
+coef(mfit2)
+
+mfit3 <- fitMusycModel(measure ~ concA+concB, antagonisticExample)
+coef(mfit3)
+```
+
+Encouragingly, the MuSyC fits posit no significant efficacy synergy, as the
+underlying surfaces all share the same maximal effect.  The potency synergy
+parameters $\alpha_{12}$ and $\alpha_{21}$, however, show more distinction.
+These parameters represent the degree to which the effect of one drug increase
+the potency of the other; with $\alpha_{12}$ representing the degree to which
+being affected by drug 1 increases the potency of drug2, and $\alpha_{21}$ 
+representing the reverse. (Unlike BRAID, MuSyC can represent synergies
+operating in both directions.)  These values are well above the baseline 1 for
+the synergistic surface, and well below 1 for the antagonistic surface.  The
+model does posit some slight synergy even for the additive surface, but this is
+unsurprising as additive surfaces with higher Hill slopes are often marked as
+synergistic by Bliss-based and Bliss-inspired methods.
+
+Though it is quite flexible and very powerful, we have still found BRAID to be
+a more reliable method overall.  The high-dimensionality of the interaction in
+MuSyC (with three or even five different parameters governing interaction) makes
+an intuitive understanding of the interactions difficult, and comparison across
+surfaces nearly impossible.  While we agree that potency synergy and efficacy 
+synergy are distinct, and deserve to be treated as such, we have found efficacy
+synergy to be more rare, and in most cases very difficult to distinguish from
+more basic potentiation.  Additionally, the basis of the model around Bliss
+independence, however implicit, is out of sync with our overall experience that
+additivity is generally a better, ess biased zero point.  Nevertheless, we
+frequently make use of the MuSyC model in our work, particularly when 
+quantifying efficacy synergy directly is desired, and hope that users of the
+`braidrm` package will make use of MuSyC as well.
+
+## The Deviation Methods
+
+In its most basic form, pharmacological "synergy" is defined as an observed
+effect in combination that is greater than what would be expected based on the
+effect of either drug in isolation.  It makes sense then that many approaches
+to combination analysis would tackle the question directly, and calculate how
+a measured surface deviates from the expected, putatively non-interacting
+surface. We refer to these methods as the "deviation" methods, and they
+quantify synergy and antagonism (either at particular dose pairs or in the
+combination overall) by estimating such deviations. The primary differences
+between them are what model they use as the "expected" non-interacting surface.
+The `braidrm` package includes functions for evaluating four such methods:
+Bliss deviation, HSA deviation, Loewe deviation, and ZIP $\delta$.  These are
+described briefly here:
+
+### Bliss Deviation
+
+Bliss deviation, perhaps the most commonly used deviation approach, quantifies
+the interaction in a response surface by modeling the effect of the two drugs
+as probabilistically independent events.  The measured effect reflects the
+proportion of targets that are affected or unaffected by either drug, and the
+probability that a target will be unaffected by two doses in combination is
+equal to the product of the probabilities that it would be unaffected by each
+dose individually.  This principle, Bliss independence [@Bliss1939], is expressed
+mathematically by the following equation:
+
+$$
+A_{12} = A_1 + A_2 - A_1A_2
+$$
+where $A_{12}$ is the proportion of targets affected by the combination, and
+$A_1$ and $A_2$ are the proportions affected by either dose individually. Bliss 
+independence is extremely popular, due the intuitive nature of combining 
+independent events and the mathematical simplicity of the non-interacting model.
+
+### Highest Single Agent
+
+Even simpler than Bliss, the highest single agent (HSA) model of
+non-interaction simply assumes that the effect of two combined doses will
+simply be the maximum of the effects of the two doses individually:
+
+$$
+A_{12} = \max\left(A_1,A_2\right)
+$$
+
+Despite its extreme simplicity, the model is still fairly widely used, often
+in parallel with Bliss independence as it will always necessarily be lower than
+the Bliss independent prediction.
+
+### Loewe Additive
+
+Though Loewe-based methods are more common as response surface models,
+deviations from a Loewe additive response surface can still be measured 
+directly [@Loewe1926].  The only constraint is that the  maximal effects of both drugs must
+be identical so that a Loewe additive surface is well defined for all dose
+pairs. Mathematically, Loewe additivity is defined as:
+
+$$
+1 = \frac{D_A}{{ID}_{X,A}} + \frac{D_B}{{ID}_{X,B}}
+$$
+
+where ${ID}_{X,A}$ and ${{ID}_{X,B}}$ are the doses of drug A and drug B that
+produce the same effect in isolation that the drug combination of $D_A$ and
+$D_B$ produce together.
+
+### Zero-Interaction Potency
+
+A more recent entry to the deviation method landscape, the zero-interaction 
+potency (or ZIP) model of Yadav *et al.* produces a more robust measure of 
+response surface deviation than the Bliss deviation method on which it is based
+[@Yadav2015]. The ZIP reference surface is a Bliss independent surface, but
+before the  combined effects are calculated, the dose-response behaviors of both
+individual drugs are fit with a Hill model to produce stabler, smoother effects.  
+Furthermore, before the reference surface is subtracted from them, individual 
+combined measurements are replaced with smoothed values resulting from fitting
+each set of measurements with a shared dose of either drug with a partial dose
+response curve.  The result, though mathematically identical to Bliss deviation 
+at its center, is a smoother, more robust deviation surface.
+
+### Deviation Functions in braidrm
+
+All four deviation methods can be accessed using the `deviationSurface()`
+function in the `braidrm` package.  The function produces a full deviation
+surface, but can be summed or averaged to produce an estimated deviation metric:
+
+```{r}
+concs1 <- cbind(additiveExample$concA,additiveExample$concB)
+act1 <- additiveExample$measure
+mean(deviationSurface(concs1,act1,method="Bliss",range=c(0,1)))
+mean(deviationSurface(concs1,act1,method="HSA",increasing=TRUE))
+mean(deviationSurface(concs1,act1,method="Loewe"))
+mean(deviationSurface(concs1,act1,method="ZIP",range=c(0,1)))
+
+concs2 <- cbind(synergisticExample$concA,additiveExample$concB)
+act2 <- synergisticExample$measure
+mean(deviationSurface(concs2,act2,method="Bliss",range=c(0,1)))
+mean(deviationSurface(concs2,act2,method="HSA",increasing=TRUE))
+mean(deviationSurface(concs2,act2,method="Loewe"))
+mean(deviationSurface(concs2,act2,method="ZIP",range=c(0,1)))
+
+concs3 <- cbind(antagonisticExample$concA,additiveExample$concB)
+act3 <- antagonisticExample$measure
+mean(deviationSurface(concs3,act3,method="Bliss",range=c(0,1)))
+mean(deviationSurface(concs3,act3,method="HSA",increasing=TRUE))
+mean(deviationSurface(concs3,act3,method="Loewe"))
+mean(deviationSurface(concs3,act3,method="ZIP",range=c(0,1)))
+```
+
+Details about the additional parameters for each of the different deviation
+methods can be found in the documentation for `deviationSurface()`.
+
+## The Combination Index
+
+Of course no discussion of combination analysis would be complete without the
+combination index [@Chou1984].  One of the most widely cited and widely used methods for
+combination analysis, the combination index (and equivalent methods such as 
+the sum of FICs [@Berenbaum1989], observed over expected, and interaction
+index [@Berenbaum1978]) quantifies the degree of interaction in a combination by the extent to
+which constant ratio combinations are potentiated relative to Loewe additivity.
+It can be a bit difficult to wrap one's head around, but briefly, the
+combination index for a given combination, for a particular *effect level* and a
+particular *dose ratio*, is the "dose" of that constant ratio combination
+required to produce that particular effect, divided by the dose that *would* be
+required were the combination purely additive.  As a result, additive surfaces
+give combination indices near 1, synergistic surfaces, being more potent, 
+produce combination indices below 1, and antagonistic surfaces produce
+combination indices above 1.
+
+The nature of the combination index makes specifying its inputs rather
+unwieldy, so `braidrm` defaults to an input format similar to that of the
+deviation methods.  The result is a set of combination index values for all
+dose ratios at which a sufficient number of dose pairs were measured:
+
+```{r}
+estimateCombinationIndices(concs1,act1,level=c(0.5))
+estimateCombinationIndices(concs2,act2,level=c(0.5))
+estimateCombinationIndices(concs3,act3,level=c(0.5))
+```
+
+We can see that for many dose ratios (particularly those near an equal mixture
+of drug A and drug B), the additive surface exhibits a combination index near
+1, the synergistic surface exhibits a combination index around 0.5, and the
+antagonistic surface gives values up around 2.  But these values are not
+consistent across dose ratios, and unfortunately, the combination index method
+does not expect them to be.  The combination index, therefore, is not a robust
+metric describing the overall behavior of the surface, making it difficult to
+compare between combinations of very different dosages, Hill slopes, and 
+potencies.

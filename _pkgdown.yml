@@ -1,0 +1,43 @@
+url: ~
+template:
+  bootstrap: 5
+  bootswatch: flatly
+
+reference:
+- subtitle: BRAID Model Calculations
+- contents:
+  - evalBraidModel
+  - invertBraidModel
+  - estimateIAE
+- subtitle: Fitting BRAID Models
+- contents:
+  - braidrm
+  - findBestBraid
+  - kappaPrior
+  - calcBraidBootstrap
+  - calcBraidConfInt
+- subtitle: Atypical Flipped BRAID Surfaces
+- contents:
+  - evalFlippedBraidModel
+  - invertFlippedBraidModel
+  - fitBraidFlipped
+  - estimateFlippedIAE
+- subtitle: Other Response Surfaces
+- contents:
+  - evalUrsaModel
+  - fitUrsaModel
+  - evalMusycModel
+  - fitMusycModel
+- subtitle: Alternate Analysis Methods
+- contents:
+  - deviationSurface
+  - estimateCombinationIndices
+- subtitle: Example Surfaces
+- contents:
+  - additiveExample
+  - synergisticExample
+  - antagonisticExample
+  - incompleteExample
+  - protectiveExample
+  - oppositionalExample
+  - coactiveExample

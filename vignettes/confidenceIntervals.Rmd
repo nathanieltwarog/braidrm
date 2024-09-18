@@ -1,0 +1,144 @@
+---
+title: "BRAID Confidence Intervals"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{BRAID Confidence Intervals}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup, include=FALSE}
+library(braidrm)
+```
+
+## The Reason for Confidence Intervals
+
+At it's heart, the BRAID package is nothing more than a response surface 
+equation and a set of tools for picking the version of that equation that is as
+close as possible to measured data.  But in scientific research, it is often
+just as important to know how much to *trust* a particular fit as it is to know
+what that fit is.  Though many techniques for modeling this trust are available,
+we have long relied on bootstrapped confidence intervals, mostly because they
+are mathematically simple, applicable to a wide range of models, and easy to
+implement on top of existing fitting code.
+
+Formally, the confidence intervals in the BRAID package are estimated by
+bootstrapping with re-sampled residuals.  This means that once a response
+surface is fit, the residuals of that model (the deviations between the actual
+measurements and the model's prediction) are re-sampled and then added to the
+underlying prediction to produce a simulated noisy surface with both the same
+underlying model and the same distribution of errors.  This re-sampled surface
+is fit with the same method as the original, and after performing this 
+re-sampling and fitting many times, we can estimate the distribution of
+parameter values that would theoretically arise if our model were spot-on.
+Taking the 2.5% and 97.5% percentile of these bootstrapped distributions gives
+our estimated confidence interval for each parameter.  If the confidence
+interval is narrow, then nearly all surfaces that look like ours will be fit
+with nearly the same value of the parameter, so we can feel confident that we 
+are close to the correct value.  If the confidence interval is wide, then
+surfaces similar to ours produce a wide variety of values for this parameter,
+and the true parameter may be quite different from the one we have fit.
+
+One of the most common uses we have for the confidence interval is to determine
+if there is evidence that a response surface deviates significantly from
+additivity:
+
+```{r, include=FALSE}
+set.seed(20240823)
+```
+
+```{r}
+summary(braidrm(measure ~ concA + concB, additiveExample, getCIs=TRUE))
+
+summary(braidrm(measure ~ concA + concB, synergisticExample, getCIs=TRUE))
+```
+
+In the first (additive) example, though the fitted value of $\kappa$ is
+slightly negative, the confidence interval encloses 0, indicting no clear 
+deviation from additivity.  In the second (synergistic) example, the confidence
+interval on $\kappa$ lies well above zero, giving more clear evidence of 
+synergy.
+
+Note that bootstrapped confidence intervals are constructed through random
+sampling; this means that estimating confidence intervals, even on identical
+data, will generally produce slightly different values.  It is therefore
+important to remember that confidence intervals are useful guidelines, not
+fundamental truths.  Those who wish to generate replicatable confidence
+intervals can do so by explicitly fixing the random seed using `set.seed()`.
+
+By default, confidence intervals are estimated whenever a surface is fit using
+`braidrm()` or `findBestBraid()`; this can be disabled by setting the parameter
+`getCIs` to `FALSE`.  Though we recommend always estimating and examining
+confidence intervals in a first pass analysis or report, including confidence
+intervals is not *always* required.  And because estimating the confidence
+intervals requires re-fitting a response surface hundreds of times, including 
+them can add a significant amount of time to an analysis process for large
+numbers of surfaces.
+
+If a fit is performed without confidence intervals, they can always be added
+after the fact using `calcBraidBootstrap()`:
+
+```{r}
+bfit <- braidrm(measure ~ concA + concB, antagonisticExample, getCIs = FALSE)
+summary(bfit)
+
+bfit_ci <- calcBraidBootstrap(bfit)
+summary(bfit_ci)
+
+```
+
+## Confidence Intervals on Derived Quantities
+
+Though evaluating parameter fits (particularly $\kappa$) is the most common use
+of confidence intervals, there are many cases in which it is useful to add
+a confidence interval to some other property or derived value from a response
+surface.  This may be as simple as the predicted effect for a particular dose
+pair, or a more complex aggregate measure of a response surface such as the
+index of achievable efficacy (IAE).  These derived confidence intervals can
+be estimated from the existing bootstrapped coefficients of a BRAID fit object
+using the function `calcBraidConfInt()`.  The function takes a BRAID fit (with
+confidence intervals) and a function specifying the derived value from a BRAID
+parameter vector:
+
+```{r}
+# CI on the predicted effect at dose pair (10, 10)
+calcBraidConfInt(bfit_ci, function(p) evalBraidModel(10,10,p))
+
+# CI on the IAE at 50% and 90% efficacy
+calcBraidConfInt(bfit_ci,function(p) estimateIAE(p,c(0.5,0.9),c(10,10)))
+```
+If a function returns a single value, the confidence interval is returned as
+a vector of 3 values (the lower bound, the best-fit estimate, and the upper
+bound).  If it returns a vector of values, the confidence interval is returned
+as a width-3 array.
+
+Of course this function can only be run on BRAID fit objects for which
+confidence intervals have already been estimated.  If the confidence intervals
+are missing, the function will produce an error:
+
+```{r, error=TRUE}
+# `bfit` does not have confidence intervals
+calcBraidConfInt(bfit, function(p) evalBraidModel(10,10,p))
+```
+
+## A Caveat
+
+One word of warning: much like its ideological cousin, the p-value, the 
+confidence interval is widely used and even more widely misinterpreted.  Saying
+that the 95% confidence interval on $\kappa$ is from 2 to 4 is *not*, **not**,
+NOT saying that there is a 95% chance that $\kappa$ lies in that range.  Indeed,
+the confidence interval barely says anything about the probability of $\kappa$ 
+values in the real world at all. All it really says is that
+*if our model were truly correct*, we would expect to fit $\kappa$ values in
+this range 95% of the time.  That first supposition is a very, very big one 
+(especially given that BRAID itself is a general-purpose, descriptive, 
+empirical model), so confidence intervals should always be viewed as suggestive
+indicators of stability, rather than clear indicators of the boundaries of
+truth.
