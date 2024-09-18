@@ -2,3 +2,6 @@
 pkgdown
 docs
 inst/doc
+data-raw
+.Rhistory
+_pkgdown.yml
