@@ -3,11 +3,11 @@ Title: Fitting Combined Action with the BRAID Response Surface Model
 Version: 1.0.2
 Authors@R: c(
     person("Anang", "Shelat", email = "anang.shelat@stjude.org", role = c("aut")),
-    person("Nathaniel", "Twarog", , email ="nathaniel.twarog@stjude.org", role = c("aut", "cre")))
+    person("Nathaniel R.", "Twarog", email ="nathaniel.twarog@stjude.org", role = c("aut", "cre")))
 Description: Contains functions for evaluating, analyzing, and fitting combined
     action dose response surfaces with the Bivariate Response to Additive
     Interacting Doses (BRAID) model of combined action, along with tools for
-    implementing other combination analysis methods, including Bliss indpendence,
+    implementing other combination analysis methods, including Bliss independence,
     combination index, and URSA and MuSyC response surface methods.
 License: GPL (>= 3)
 Encoding: UTF-8

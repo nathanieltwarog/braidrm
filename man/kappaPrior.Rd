@@ -28,6 +28,7 @@ parameter fitting
 \examples{
 prior <- kappaPrior(0.05,"mild")
 
-bfit <- braidrm(measure ~ concA + concB, incompleteExample, prior=prior)
+bfit <- braidrm(measure ~ concA + concB, incompleteExample,
+                prior=prior, getCIs=FALSE)
 summary(bfit)
 }
