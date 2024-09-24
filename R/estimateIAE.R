@@ -153,7 +153,7 @@ estimateFlippedIAE_internal <- function(bpar,flip,levels,limits,lowerLimits=c(0,
 		level <- levels[[lind]]
 
 		# xbd_hi1 <- invertFlippedBraidModel(DB=0,effect=level,bpar=bpar,flip=flip,invalidNA=FALSE)
-		xbd_hi <- limits[[1]]
+		xbd_hi1 <- limits[[1]]
 		if (xbd_hi1==0) { area1 <- prod(lowerLimits) }
 		else {
 			xbd_hi1 <- min(max(xbd_hi1,lowerLimits[[1]]),limits[[1]])
