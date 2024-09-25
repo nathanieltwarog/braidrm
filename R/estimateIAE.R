@@ -137,8 +137,6 @@ estimateIAE_internal <- function(bpar,levels,limits,lowerLimits=c(0,0)) {
 }
 
 estimateFlippedIAE_internal <- function(bpar,flip,levels,limits,lowerLimits=c(0,0)) {
-	bpar <- flippedFillOutBraidPar(bpar,flip)
-
 	numpts <- 100
 
 	if (length(limits)==1) {
@@ -152,7 +150,6 @@ estimateFlippedIAE_internal <- function(bpar,flip,levels,limits,lowerLimits=c(0,
 	for (lind in seq_along(levels)) {
 		level <- levels[[lind]]
 
-		# xbd_hi1 <- invertFlippedBraidModel(DB=0,effect=level,bpar=bpar,flip=flip,invalidNA=FALSE)
 		xbd_hi1 <- limits[[1]]
 		if (xbd_hi1==0) { area1 <- prod(lowerLimits) }
 		else {
@@ -168,9 +165,9 @@ estimateFlippedIAE_internal <- function(bpar,flip,levels,limits,lowerLimits=c(0,
 				c2out <- c2out-c2out_lo
 			}
 			area1 <- mean(c2out)*xbd_hi1
+			if (flip=="A") { area1 <- prod(limits)-area1 }
 		}
 
-		# ybd_hi2 <- invertFlippedBraidModel(DA=0,effect=level,bpar=bpar,flip=flip,invalidNA=FALSE)
 		ybd_hi2 <- limits[[2]]
 		if (ybd_hi2==0) { area2 <- prod(lowerLimits) }
 		else {
@@ -186,6 +183,7 @@ estimateFlippedIAE_internal <- function(bpar,flip,levels,limits,lowerLimits=c(0,
 				c1out <- c1out-c1out_lo
 			}
 			area2 <- mean(c1out)*ybd_hi2
+			if (flip=="B") { area2 <- prod(limits)-area2 }
 		}
 
 		iae[[lind]] <- sqrt((2*prod(limits))/(area1+area2))
