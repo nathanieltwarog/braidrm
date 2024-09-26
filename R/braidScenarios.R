@@ -50,7 +50,7 @@ fitBraidScenario_Z_1 <- function(concs,act,model,weights,start,direction,pbounds
 	vdfunc <- function(p) valderivfunc(p,concs,act,weights,start,model,kweight)
 	fpfunc <- function(p) par2fullpar(p,start,model)
 
-	nls <- basicdrm:::runBoundedOptim(vdfunc,fpfunc,nstart,nbounds)
+	nls <- runBoundedOptim(vdfunc,fpfunc,nstart,nbounds)
 	braidFitObject(nls,"Z_1",concs,act,model,weights,start,direction,pbounds,kweight)
 }
 
@@ -148,7 +148,7 @@ fitBraidScenario_I_1 <- function(concs,act,model,weights,start,direction,pbounds
 	vdfunc <- function(p) valderivfunc(p,concs,act,weights,start,model,kweight)
 	fpfunc <- function(p) par2fullpar(p,start,model)
 
-	nls <- basicdrm:::runBoundedOptim(vdfunc,fpfunc,nstart,nbounds)
+	nls <- runBoundedOptim(vdfunc,fpfunc,nstart,nbounds)
 	braidFitObject(nls,"I_1",concs,act,model,weights,start,direction,pbounds,kweight)
 }
 # E0 varies freely, EfA, EfB, and Ef fixed at the *same* constant value
@@ -200,7 +200,7 @@ fitBraidScenario_I_1s <- function(concs,act,model,weights,start,direction,pbound
 		wt2 <- (weights^2)/mean(weights^2)
 		sfact <- evalBraidModel_sf(concs[,1],concs[,2],bsf$sfpar,calcderivs=FALSE)
 		mnv <- c(mean(wt2*(1-sfact)),mean(wt2*(1-sfact)^2),mean(wt2*act),mean(wt2*(1-sfact)*act))
-		ebnd <- basicdrm:::boundedOpt1d(mnv,start[[9]],bsf$bounds)
+		ebnd <- boundedOpt1d(mnv,start[[9]],bsf$bounds)
 		fpar <- c(bsf$sfpar[1:5],ebnd[[1]],rep(start[[9]],3))
 		return(fpar)
 	}
@@ -211,7 +211,7 @@ fitBraidScenario_I_1s <- function(concs,act,model,weights,start,direction,pbound
 		sfres <- evalBraidModel_sf(concs[,1],concs[,2],bsf$sfpar,calcderivs=TRUE)
 		sfact <- sfres$value
 		mnv <- c(mean(wt2*(1-sfact)),mean(wt2*(1-sfact)^2),mean(wt2*act),mean(wt2*(1-sfact)*act))
-		ebnd <- basicdrm:::boundedOpt1d(mnv,start[[6]],bsf$bounds)
+		ebnd <- boundedOpt1d(mnv,start[[6]],bsf$bounds)
 		ebnd[[3]] <- ebnd[[3]]*mean(weights^2)
 		sfact <- (start[[9]]-ebnd[[1]])*sfact+ebnd[[1]]-act
 		ovalue <- sum((weights*sfact)^2)
@@ -231,7 +231,7 @@ fitBraidScenario_I_1s <- function(concs,act,model,weights,start,direction,pbound
 	fpfunc <- function(p) par2fullpar(p,concs,act,weights,start,model,base_obounds)
 
 	# Run optim
-	nls <- basicdrm:::runBoundedOptim(vdfunc,fpfunc,nstart,nbounds)
+	nls <- runBoundedOptim(vdfunc,fpfunc,nstart,nbounds)
 
 	braidFitObject(nls,"I_1",concs,act,model,weights,start,direction,pbounds,kweight)
 }
@@ -330,7 +330,7 @@ fitBraidScenario_I_2 <- function(concs,act,model,weights,start,direction,pbounds
 	vdfunc <- function(p) valderivfunc(p,concs,act,weights,start,model,kweight)
 	fpfunc <- function(p) par2fullpar(p,start,model)
 
-	nls <- basicdrm:::runBoundedOptim(vdfunc,fpfunc,nstart,nbounds)
+	nls <- runBoundedOptim(vdfunc,fpfunc,nstart,nbounds)
 	braidFitObject(nls,"I_2",concs,act,model,weights,start,direction,pbounds,kweight)
 }
 
@@ -400,7 +400,7 @@ fitBraidScenario_I_3A <- function(concs,act,model,weights,start,direction,pbound
 	vdfunc <- function(p) valderivfunc(p,concs,act,weights,start,model,kweight)
 	fpfunc <- function(p) par2fullpar(p,start,model)
 
-	nls <- basicdrm:::runBoundedOptim(vdfunc,fpfunc,nstart,nbounds)
+	nls <- runBoundedOptim(vdfunc,fpfunc,nstart,nbounds)
 	braidFitObject(nls,"I_3A",concs,act,model,weights,start,direction,pbounds,kweight)
 }
 # E0, EfA, and Ef fixed, EfB varies between E0 and Ef
@@ -487,7 +487,7 @@ fitBraidScenario_I_4A <- function(concs,act,model,weights,start,direction,pbound
 	vdfunc <- function(p) valderivfunc(p,concs,act,weights,start,model,kweight)
 	fpfunc <- function(p) par2fullpar(p,start,model)
 
-	nls <- basicdrm:::runBoundedOptim(vdfunc,fpfunc,nstart,nbounds)
+	nls <- runBoundedOptim(vdfunc,fpfunc,nstart,nbounds)
 	braidFitObject(nls,"I_4A",concs,act,model,weights,start,direction,pbounds,kweight)
 }
 # E0 and EfA fixed, Ef varies above, EfB fixed equal to Ef
@@ -625,7 +625,7 @@ fitBraidScenario_I_7 <- function(concs,act,model,weights,start,direction,pbounds
 		wt2 <- (weights^2)/mean(weights^2)
 		sfact <- evalBraidModel_sf(concs[,1],concs[,2],bsf$sfpar,calcderivs=FALSE)
 		mnv <- c(mean(wt2*sfact),mean(wt2*sfact^2),mean(wt2*act),mean(wt2*sfact*act))
-		ebnd <- basicdrm:::boundedOpt1d(mnv,start[[6]],bsf$bounds)
+		ebnd <- boundedOpt1d(mnv,start[[6]],bsf$bounds)
 		fpar <- c(bsf$sfpar[1:5],start[[6]],rep(ebnd[[1]],3))
 		return(fpar)
 	}
@@ -636,7 +636,7 @@ fitBraidScenario_I_7 <- function(concs,act,model,weights,start,direction,pbounds
 		sfres <- evalBraidModel_sf(concs[,1],concs[,2],bsf$sfpar,calcderivs=TRUE)
 		sfact <- sfres$value
 		mnv <- c(mean(wt2*sfact),mean(wt2*sfact^2),mean(wt2*act),mean(wt2*sfact*act))
-		ebnd <- basicdrm:::boundedOpt1d(mnv,start[[6]],bsf$bounds)
+		ebnd <- boundedOpt1d(mnv,start[[6]],bsf$bounds)
 		ebnd[[3]] <- ebnd[[3]]*mean(weights^2)
 		sfact <- (ebnd[[1]]-start[[6]])*sfact+start[[6]]-act
 		ovalue <- sum((weights*sfact)^2)
@@ -656,7 +656,7 @@ fitBraidScenario_I_7 <- function(concs,act,model,weights,start,direction,pbounds
 	fpfunc <- function(p) par2fullpar(p,concs,act,weights,start,model,base_obounds)
 
 	# Run optim
-	nls <- basicdrm:::runBoundedOptim(vdfunc,fpfunc,nstart,nbounds)
+	nls <- runBoundedOptim(vdfunc,fpfunc,nstart,nbounds)
 
 	braidFitObject(nls,"I_7",concs,act,model,weights,start,direction,pbounds,kweight)
 }
@@ -794,7 +794,7 @@ fitBraidScenario_II_1d <- function(concs,act,model,weights,start,direction,pboun
 	# Run optim
 	parscale <- rep(1,length(nstart))
 	parscale[(length(nstart)-1):length(nstart)] <- eparscale
-	nls <- basicdrm:::runBoundedOptim(vdfunc,fpfunc,nstart,nbounds,parscale=parscale)
+	nls <- runBoundedOptim(vdfunc,fpfunc,nstart,nbounds,parscale=parscale)
 
 	braidFitObject(nls,"II_1",concs,act,model,weights,start,direction,pbounds,kweight)
 }
@@ -853,8 +853,8 @@ fitBraidScenario_II_1s <- function(concs,act,model,weights,start,direction,pboun
 		if (fA>.Machine$double.eps) {
 			bounds <- initialBound1d(start[[7]]*(1+1/fA)-rev(abbounds[,1])/fA,c("E0max","E0min"))
 			if (fA<1) {
-				bounds <- basicdrm:::addBound1d(bounds,c(start[[7]]*(1-1/(1-fA))+abbounds[1,2]/(1-fA),1),"Efmin")
-				bounds <- basicdrm:::addBound1d(bounds,c(start[[7]]*(1-1/(1-fA))+abbounds[2,2]/(1-fA),-1),"Efmax")
+				bounds <- addBound1d(bounds,c(start[[7]]*(1-1/(1-fA))+abbounds[1,2]/(1-fA),1),"Efmin")
+				bounds <- addBound1d(bounds,c(start[[7]]*(1-1/(1-fA))+abbounds[2,2]/(1-fA),-1),"Efmax")
 			}
 		} else {
 			bounds <- initialBound1d(start[[7]]*(1-1/(1-fA))+abbounds[,2]/(1-fA),c("Efmin","Efmax"))
@@ -872,7 +872,7 @@ fitBraidScenario_II_1s <- function(concs,act,model,weights,start,direction,pboun
 		sfact <- sfact-fA
 		mnv <- c(mean(wt2*sfact),mean(wt2*sfact^2),mean(wt2*act),mean(wt2*sfact*act))
 		sfact <- sfact+fA
-		ebnd <- basicdrm:::boundedOpt1d(mnv,start[[7]],bsf$bounds)
+		ebnd <- boundedOpt1d(mnv,start[[7]],bsf$bounds)
 		ebnd[[3]] <- ebnd[[3]]*mean(weights^2)
 
 		e0 <- (1+fA)*start[[7]]-fA*ebnd[[1]]
@@ -891,7 +891,7 @@ fitBraidScenario_II_1s <- function(concs,act,model,weights,start,direction,pboun
 		sfact <- sfact-fA
 		mnv <- c(mean(wt2*sfact),mean(wt2*sfact^2),mean(wt2*act),mean(wt2*sfact*act))
 		sfact <- sfact+fA
-		ebnd <- basicdrm:::boundedOpt1d(mnv,start[[7]],bsf$bounds)
+		ebnd <- boundedOpt1d(mnv,start[[7]],bsf$bounds)
 		ebnd[[3]] <- ebnd[[3]]*mean(weights^2)
 
 
@@ -928,7 +928,7 @@ fitBraidScenario_II_1s <- function(concs,act,model,weights,start,direction,pboun
 	fpfunc <- function(p) par2fullpar(p,concs,act,weights,start,model,abbounds)
 
 	# Run optim
-	nls <- basicdrm:::runBoundedOptim(vdfunc,fpfunc,nstart,nbounds)
+	nls <- runBoundedOptim(vdfunc,fpfunc,nstart,nbounds)
 
 	braidFitObject(nls,"II_1s",concs,act,model,weights,start,direction,pbounds,kweight)
 }
@@ -1066,7 +1066,7 @@ fitBraidScenario_II_2A <- function(concs,act,model,weights,start,direction,pboun
 	# Run optim
 	parscale <- rep(1,length(nstart))
 	parscale[[length(nstart)]] <- eparscale
-	nls <- basicdrm:::runBoundedOptim(vdfunc,fpfunc,nstart,nbounds,parscale=parscale)
+	nls <- runBoundedOptim(vdfunc,fpfunc,nstart,nbounds,parscale=parscale)
 
 	braidFitObject(nls,"II_2A",concs,act,model,weights,start,direction,pbounds,kweight)
 
@@ -1136,7 +1136,7 @@ fitBraidScenario_II_2As <- function(concs,act,model,weights,start,direction,pbou
 			if (is.finite(abbounds[j,i]) && fpar[i]<1) {
 				thisName <- paste0(bnms[i],btps[j])
 				thresh <- (abbounds[j,i] - fpar[[i]]*start[[9]])/(1-fpar[i])
-				nbounds <- basicdrm:::addBound1d(bounds,c(thresh,sign(1.5-j)),thisName)
+				nbounds <- addBound1d(bounds,c(thresh,sign(1.5-j)),thisName)
 
 				if (!is.null(nbounds)) { bounds <- nbounds }
 				else {
@@ -1163,7 +1163,7 @@ fitBraidScenario_II_2As <- function(concs,act,model,weights,start,direction,pbou
 
 		sfact <- 1-sfact
 		mnv <- c(mean(wt2*sfact),mean(wt2*sfact^2),mean(wt2*act),mean(wt2*sfact*act))
-		ebnd <- basicdrm:::boundedOpt1d(mnv,start[[9]],bsf$bounds)
+		ebnd <- boundedOpt1d(mnv,start[[9]],bsf$bounds)
 
 		fpar <- c(bsf$sfpar[1:5],ebnd[[1]],start[[9]],start[[9]],start[[9]])
 		fpar[7:8] <- ebnd[[1]]+(start[[9]]-ebnd[[1]])*bsf$sfpar[6:7]
@@ -1179,7 +1179,7 @@ fitBraidScenario_II_2As <- function(concs,act,model,weights,start,direction,pbou
 		sfact <- 1-sfact
 		mnv <- c(mean(wt2*sfact),mean(wt2*sfact^2),mean(wt2*act),mean(wt2*sfact*act))
 		sfact <- 1-sfact
-		ebnd <- basicdrm:::boundedOpt1d(mnv,start[[9]],bsf$bounds)
+		ebnd <- boundedOpt1d(mnv,start[[9]],bsf$bounds)
 		ebnd[[3]] <- ebnd[[3]]*mean(weights^2)
 
 		sfact <- (start[[9]]-ebnd[[1]])*sfact+ebnd[[1]]-act
@@ -1210,7 +1210,7 @@ fitBraidScenario_II_2As <- function(concs,act,model,weights,start,direction,pbou
 	fpfunc <- function(p) par2fullpar(p,concs,act,weights,start,model,base_obounds,abbounds)
 
 	# Run optim
-	nls <- basicdrm:::runBoundedOptim(vdfunc,fpfunc,nstart,nbounds)
+	nls <- runBoundedOptim(vdfunc,fpfunc,nstart,nbounds)
 	braidFitObject(nls,"II_2A",concs,act,model,weights,start,direction,pbounds,kweight)
 }
 # E0 varies, EfA and Ef fixed, EfB varies
@@ -1292,7 +1292,7 @@ fitBraidScenario_II_3B <- function(concs,act,model,weights,start,direction,pboun
 				for (j in 1:2) {
 					thisName <- c("Efmin","EfMax")[[j]]
 					thresh <- start[[7]]*(1-1/(1-fpar[[1]]))+abbounds[j,2]/(1-fpar[[1]])
-					nbounds <- basicdrm:::addBound1d(bounds,c(thresh,sign(1.5-j)),thisName)
+					nbounds <- addBound1d(bounds,c(thresh,sign(1.5-j)),thisName)
 
 					if (!is.null(nbounds)) { bounds <- nbounds }
 					else {
@@ -1307,8 +1307,8 @@ fitBraidScenario_II_3B <- function(concs,act,model,weights,start,direction,pboun
 						}
 					}
 				}
-				# bounds <- basicdrm:::addBound1d(bounds,c(start[[7]]*(1-1/(1-fA))+abbounds[1,2]/(1-fA),1),"Efmin")
-				# bounds <- basicdrm:::addBound1d(bounds,c(start[[7]]*(1-1/(1-fA))+abbounds[2,2]/(1-fA),-1),"Efmax")
+				# bounds <- addBound1d(bounds,c(start[[7]]*(1-1/(1-fA))+abbounds[1,2]/(1-fA),1),"Efmin")
+				# bounds <- addBound1d(bounds,c(start[[7]]*(1-1/(1-fA))+abbounds[2,2]/(1-fA),-1),"Efmax")
 			}
 		} else {
 			bounds <- initialBound1d(start[[7]]*(1-1/(1-fA))+abbounds[,2]/(1-fA),c("Efmin","Efmax"))
@@ -1326,7 +1326,7 @@ fitBraidScenario_II_3B <- function(concs,act,model,weights,start,direction,pboun
 		sfact <- sfact-fA
 		mnv <- c(mean(wt2*sfact),mean(wt2*sfact^2),mean(wt2*act),mean(wt2*sfact*act))
 		sfact <- sfact+fA
-		ebnd <- basicdrm:::boundedOpt1d(mnv,start[[7]],bsf$bounds)
+		ebnd <- boundedOpt1d(mnv,start[[7]],bsf$bounds)
 		ebnd[[3]] <- ebnd[[3]]*mean(weights^2)
 
 		e0 <- (1+fA)*start[[7]]-fA*ebnd[[1]]
@@ -1345,7 +1345,7 @@ fitBraidScenario_II_3B <- function(concs,act,model,weights,start,direction,pboun
 		sfact <- sfact-fA
 		mnv <- c(mean(wt2*sfact),mean(wt2*sfact^2),mean(wt2*act),mean(wt2*sfact*act))
 		sfact <- sfact+fA
-		ebnd <- basicdrm:::boundedOpt1d(mnv,start[[7]],bsf$bounds)
+		ebnd <- boundedOpt1d(mnv,start[[7]],bsf$bounds)
 		ebnd[[3]] <- ebnd[[3]]*mean(weights^2)
 
 
@@ -1381,7 +1381,7 @@ fitBraidScenario_II_3B <- function(concs,act,model,weights,start,direction,pboun
 	fpfunc <- function(p) par2fullpar(p,concs,act,weights,start,model,abbounds)
 
 	# Run optim
-	nls <- basicdrm:::runBoundedOptim(vdfunc,fpfunc,nstart,nbounds)
+	nls <- runBoundedOptim(vdfunc,fpfunc,nstart,nbounds)
 
 	braidFitObject(nls,"II_3B",concs,act,model,weights,start,direction,pbounds,kweight)
 }
@@ -1489,7 +1489,7 @@ fitBraidScenario_II_6 <- function(concs,act,model,weights,start,direction,pbound
 	start <- rectifyStart(model,start,pbounds)
 
 	# Get (2) outer bounds on E0 and Ef
-	base_obounds <- basicdrm:::getHillOuterBounds(direction,ebounds)
+	base_obounds <- getOuterBounds(direction,ebounds)
 
 	# Specify nbounds
 	# Specify nstart
@@ -1513,7 +1513,7 @@ fitBraidScenario_II_6 <- function(concs,act,model,weights,start,direction,pbound
 		wt2 <- (weights^2)/mean(weights^2)
 		sfact <- evalBraidModel_sf(concs[,1],concs[,2],bsf$sfpar,calcderivs=FALSE)
 		mnv <- c(mean(wt2*sfact),mean(wt2*sfact^2),mean(wt2*act),mean(wt2*sfact*act))
-		ebnds <- basicdrm:::boundedOpt2d(mnv,bsf$bounds)
+		ebnds <- boundedOpt2d(mnv,bsf$bounds)
 		fpar <- c(bsf$sfpar[1:5],ebnds[1],ebnds[2],ebnds[2],ebnds[2])
 		return(fpar)
 	}
@@ -1525,7 +1525,7 @@ fitBraidScenario_II_6 <- function(concs,act,model,weights,start,direction,pbound
 		sfact <- sfres$value
 		mnv <- c(mean(wt2*sfact),mean(wt2*sfact^2),mean(wt2*act),mean(wt2*sfact*act))
 		obounds <- bsf$bounds
-		ebnds <- basicdrm:::boundedOpt2d(mnv,obounds)
+		ebnds <- boundedOpt2d(mnv,obounds)
 		ebnds[4:5] <- ebnds[4:5]*mean(weights^2)
 		sfact <- (ebnds[2]-ebnds[1])*sfact+ebnds[1]-act
 		ovalue <- sum((weights*sfact)^2)
@@ -1546,7 +1546,7 @@ fitBraidScenario_II_6 <- function(concs,act,model,weights,start,direction,pbound
 	fpfunc <- function(p) par2fullpar(p,concs,act,weights,start,model,base_obounds)
 
 	# Run optim
-	nls <- basicdrm:::runBoundedOptim(vdfunc,fpfunc,nstart,nbounds)
+	nls <- runBoundedOptim(vdfunc,fpfunc,nstart,nbounds)
 
 	braidFitObject(nls,"II_6",concs,act,model,weights,start,direction,pbounds,kweight)
 }
@@ -1684,7 +1684,7 @@ fitBraidScenario_II_7A <- function(concs,act,model,weights,start,direction,pboun
 	# Run optim
 	parscale <- rep(1,length(nstart))
 	parscale[[length(nstart)]] <- eparscale
-	nls <- basicdrm:::runBoundedOptim(vdfunc,fpfunc,nstart,nbounds,parscale=parscale)
+	nls <- runBoundedOptim(vdfunc,fpfunc,nstart,nbounds,parscale=parscale)
 
 	braidFitObject(nls,"II_7A",concs,act,model,weights,start,direction,pbounds,kweight)
 }
@@ -1767,7 +1767,7 @@ fitBraidScenario_II_8 <- function(concs,act,model,weights,start,direction,pbound
 	vdfunc <- function(p) valderivfunc(p,concs,act,weights,start,model,kweight)
 	fpfunc <- function(p) par2fullpar(p,start,model)
 
-	nls <- basicdrm:::runBoundedOptim(vdfunc,fpfunc,nstart,nbounds)
+	nls <- runBoundedOptim(vdfunc,fpfunc,nstart,nbounds)
 	braidFitObject(nls,"II_8",concs,act,model,weights,start,direction,pbounds,kweight)
 }
 
@@ -1833,7 +1833,7 @@ fitBraidScenario_II_9A <- function(concs,act,model,weights,start,direction,pboun
 			if (is.finite(abbounds[j,i]) && fpar[i]>.Machine$double.eps) {
 				thisName <- paste0(bnms[i],btps[j])
 				thresh <- (abbounds[j,i] - (1-fpar[[i]])*start[[6]])/fpar[i]
-				nbounds <- basicdrm:::addBound1d(bounds,c(thresh,sign(1.5-j)),thisName)
+				nbounds <- addBound1d(bounds,c(thresh,sign(1.5-j)),thisName)
 
 				if (!is.null(nbounds)) { bounds <- nbounds }
 				else {
@@ -1859,7 +1859,7 @@ fitBraidScenario_II_9A <- function(concs,act,model,weights,start,direction,pboun
 		sfact <- evalBraidModel_sf(concs[,1],concs[,2],bsf$sfpar,calcderivs=FALSE)
 
 		mnv <- c(mean(wt2*sfact),mean(wt2*sfact^2),mean(wt2*act),mean(wt2*sfact*act))
-		ebnd <- basicdrm:::boundedOpt1d(mnv,start[[6]],bsf$bounds)
+		ebnd <- boundedOpt1d(mnv,start[[6]],bsf$bounds)
 
 		fpar <- c(bsf$sfpar[1:5],start[[6]],ebnd[[1]],ebnd[[1]],ebnd[[1]])
 		fpar[7:8] <- start[[6]]+(ebnd[[1]]-start[[6]])*bsf$sfpar[6:7]
@@ -1873,7 +1873,7 @@ fitBraidScenario_II_9A <- function(concs,act,model,weights,start,direction,pboun
 		sfact <- sfres$value
 
 		mnv <- c(mean(wt2*sfact),mean(wt2*sfact^2),mean(wt2*act),mean(wt2*sfact*act))
-		ebnd <- basicdrm:::boundedOpt1d(mnv,start[[6]],bsf$bounds)
+		ebnd <- boundedOpt1d(mnv,start[[6]],bsf$bounds)
 		ebnd[[3]] <- ebnd[[3]]*mean(weights^2)
 
 		sfact <- (ebnd[[1]]-start[[6]])*sfact+start[[6]]-act
@@ -1904,7 +1904,7 @@ fitBraidScenario_II_9A <- function(concs,act,model,weights,start,direction,pboun
 	fpfunc <- function(p) par2fullpar(p,concs,act,weights,start,model,base_obounds,abbounds)
 
 	# Run optim
-	nls <- basicdrm:::runBoundedOptim(vdfunc,fpfunc,nstart,nbounds)
+	nls <- runBoundedOptim(vdfunc,fpfunc,nstart,nbounds)
 	braidFitObject(nls,"II_9A",concs,act,model,weights,start,direction,pbounds,kweight)
 }
 # E0 fixed, EfB and Ef vary, EfA fixed equal to Ef
@@ -1977,7 +1977,7 @@ fitBraidScenario_II_10 <- function(concs,act,model,weights,start,direction,pboun
 				if (is.finite(abbounds[j,i]) && fpar[i]>.Machine$double.eps) {
 					thisName <- paste0(bnms[i],btps[j])
 					thresh <- (abbounds[j,i] - (1-fpar[i])*start[[6]])/fpar[[i]]
-					nbounds <- basicdrm:::addBound1d(bounds,c(thresh,sign(1.5-j)),thisName)
+					nbounds <- addBound1d(bounds,c(thresh,sign(1.5-j)),thisName)
 
 					if (!is.null(nbounds)) { bounds <- nbounds }
 					else {
@@ -2004,7 +2004,7 @@ fitBraidScenario_II_10 <- function(concs,act,model,weights,start,direction,pboun
 		sfact <- evalBraidModel_sf(concs[,1],concs[,2],bsf$sfpar,calcderivs=FALSE)
 
 		mnv <- c(mean(wt2*sfact),mean(wt2*sfact^2),mean(wt2*act),mean(wt2*sfact*act))
-		ebnd <- basicdrm:::boundedOpt1d(mnv,start[[6]],bsf$bounds)
+		ebnd <- boundedOpt1d(mnv,start[[6]],bsf$bounds)
 
 		fpar <- c(bsf$sfpar[1:5],start[[6]],ebnd[[1]],ebnd[[1]],ebnd[[1]])
 		fpar[7:8] <- start[[6]]+(ebnd[[1]]-start[[6]])*bsf$sfpar[6:7]
@@ -2018,7 +2018,7 @@ fitBraidScenario_II_10 <- function(concs,act,model,weights,start,direction,pboun
 		sfact <- sfres$value
 
 		mnv <- c(mean(wt2*sfact),mean(wt2*sfact^2),mean(wt2*act),mean(wt2*sfact*act))
-		ebnd <- basicdrm:::boundedOpt1d(mnv,start[[6]],bsf$bounds)
+		ebnd <- boundedOpt1d(mnv,start[[6]],bsf$bounds)
 		ebnd[[3]] <- ebnd[[3]]*mean(weights^2)
 
 		sfact <- (ebnd[[1]]-start[[6]])*sfact+start[[6]]-act
@@ -2057,10 +2057,10 @@ fitBraidScenario_II_10 <- function(concs,act,model,weights,start,direction,pboun
 	if (nbounds[1,npar]<0.5 || nbounds[2,npar]>1.5) {
 		tnbounds <- nbounds
 		tnbounds[,npar] <- c(max(nbounds[1,npar],0.5),min(nbounds[2,npar],1.5))
-		tnls <- basicdrm:::runBoundedOptim(vdfunc,fpfunc,nstart,tnbounds)
-		nls <- basicdrm:::runBoundedOptim(vdfunc,fpfunc,tnls$par,nbounds)
+		tnls <- runBoundedOptim(vdfunc,fpfunc,nstart,tnbounds)
+		nls <- runBoundedOptim(vdfunc,fpfunc,tnls$par,nbounds)
 	} else {
-		nls <- basicdrm:::runBoundedOptim(vdfunc,fpfunc,nstart,nbounds)
+		nls <- runBoundedOptim(vdfunc,fpfunc,nstart,nbounds)
 	}
 
 	braidFitObject(nls,"II_10",concs,act,model,weights,start,direction,pbounds,kweight)
@@ -2121,14 +2121,14 @@ fitBraidScenario_III_1A <- function(concs,act,model,weights,start,direction,pbou
 		sfpar <- preFillScaleFree(parv,start,model)
 		fpar <- parv[(length(parv)-1):length(parv)]
 
-		bounds <- basicdrm:::emptyBound1d()
+		bounds <- emptyBound1d()
 		btps <- c("min","max")
 		if (fpar[[2]]>.Machine$double.eps) {
 			for (j in 1:2) {
 				thisName <- paste0("E0",btps[j])
 				if (is.finite(abbounds[j,1])) {
 					thresh <- start[[8]] + (start[[8]]-abbounds[j,1])/fpar[[2]]
-					bounds <- basicdrm:::addBound1d(bounds,c(thresh,-sign(1.5-j)),thisName)
+					bounds <- addBound1d(bounds,c(thresh,-sign(1.5-j)),thisName)
 				}
 			}
 		}
@@ -2143,7 +2143,7 @@ fitBraidScenario_III_1A <- function(concs,act,model,weights,start,direction,pbou
 					} else if (j==2 && abs(thresh-bounds$upper$value)<dprecision) {
 						bounds$upper$name <- "upper"
 					} else {
-						bounds <- basicdrm:::addBound1d(bounds,c(thresh,sign(1.5-j)),thisName)
+						bounds <- addBound1d(bounds,c(thresh,sign(1.5-j)),thisName)
 					}
 				}
 			}
@@ -2153,7 +2153,7 @@ fitBraidScenario_III_1A <- function(concs,act,model,weights,start,direction,pbou
 				thisName <- paste0("EfA",btps[j])
 				if (is.finite(abbounds[j,2])) {
 					thresh <- start[[8]] + (abbounds[j,2]-start[[8]])/(fpar[[1]]-fpar[[2]])
-					nbounds <- basicdrm:::addBound1d(bounds,c(thresh,sign(1.5-j)*sign(fpar[[1]]-fpar[[2]])),thisName)
+					nbounds <- addBound1d(bounds,c(thresh,sign(1.5-j)*sign(fpar[[1]]-fpar[[2]])),thisName)
 					if (!is.null(nbounds)) { bounds <- nbounds }
 					else {
 						if ((j==1 && fpar[[1]]>fpar[[2]]) || (j==2 && fpar[[1]]<fpar[[2]])) {
@@ -2181,7 +2181,7 @@ fitBraidScenario_III_1A <- function(concs,act,model,weights,start,direction,pbou
 		fB <- bsf$sfpar[[7]]
 		sfact <- sfact-fB
 		mnv <- c(mean(wt2*sfact),mean(wt2*sfact^2),mean(wt2*act),mean(wt2*sfact*act))
-		ebnd <- basicdrm:::boundedOpt1d(mnv,start[[8]],bsf$bounds)
+		ebnd <- boundedOpt1d(mnv,start[[8]],bsf$bounds)
 
 		e0 <- (1+fB)*start[[8]]-fB*ebnd[[1]]
 		ef <- (1-fB)*ebnd[[1]]+fB*start[[8]]
@@ -2201,7 +2201,7 @@ fitBraidScenario_III_1A <- function(concs,act,model,weights,start,direction,pbou
 		sfact <- sfact-fB
 		mnv <- c(mean(wt2*sfact),mean(wt2*sfact^2),mean(wt2*act),mean(wt2*sfact*act))
 		sfact <- sfact+fB
-		ebnd <- basicdrm:::boundedOpt1d(mnv,start[[8]],bsf$bounds)
+		ebnd <- boundedOpt1d(mnv,start[[8]],bsf$bounds)
 		ebnd[[3]] <- ebnd[[3]]*mean(weights^2)
 
 		e0 <- (1+fB)*start[[8]]-fB*ebnd[[1]]
@@ -2241,7 +2241,7 @@ fitBraidScenario_III_1A <- function(concs,act,model,weights,start,direction,pbou
 	fpfunc <- function(p) par2fullpar(p,concs,act,weights,start,model,abbounds)
 
 	# Run optim
-	nls <- basicdrm:::runBoundedOptim(vdfunc,fpfunc,nstart,nbounds)
+	nls <- runBoundedOptim(vdfunc,fpfunc,nstart,nbounds)
 
 	braidFitObject(nls,"III_1A",concs,act,model,weights,start,direction,pbounds,kweight)
 }
@@ -2394,7 +2394,7 @@ fitBraidScenario_III_1Ad <- function(concs,act,model,weights,start,direction,pbo
 	# Run optim
 	parscale <- rep(1,length(nstart))
 	parscale[(length(nstart)-1):length(nstart)] <- eparscale
-	nls <- basicdrm:::runBoundedOptim(vdfunc,fpfunc,nstart,nbounds,parscale=parscale)
+	nls <- runBoundedOptim(vdfunc,fpfunc,nstart,nbounds,parscale=parscale)
 
 	braidFitObject(nls,"III_1A",concs,act,model,weights,start,direction,pbounds,kweight)
 }
@@ -2465,7 +2465,7 @@ fitBraidScenario_III_2 <- function(concs,act,model,weights,start,direction,pboun
 				if (is.finite(abbounds[j,i]) && fpar[i]<1) {
 					thisName <- paste0(bnms[i],btps[j])
 					thresh <- (abbounds[j,i] - fpar[[i]]*start[[9]])/(1-fpar[[i]])
-					nbounds <- basicdrm:::addBound1d(bounds,c(thresh,sign(1.5-j)),thisName)
+					nbounds <- addBound1d(bounds,c(thresh,sign(1.5-j)),thisName)
 
 					if (!is.null(nbounds)) { bounds <- nbounds }
 					else {
@@ -2493,7 +2493,7 @@ fitBraidScenario_III_2 <- function(concs,act,model,weights,start,direction,pboun
 
 		sfact <- 1-sfact
 		mnv <- c(mean(wt2*sfact),mean(wt2*sfact^2),mean(wt2*act),mean(wt2*sfact*act))
-		ebnd <- basicdrm:::boundedOpt1d(mnv,start[[9]],bsf$bounds)
+		ebnd <- boundedOpt1d(mnv,start[[9]],bsf$bounds)
 
 		fpar <- c(bsf$sfpar[1:5],ebnd[[1]],start[[9]],start[[9]],start[[9]])
 		fpar[7:8] <- ebnd[[1]]+(start[[9]]-ebnd[[1]])*bsf$sfpar[6:7]
@@ -2509,7 +2509,7 @@ fitBraidScenario_III_2 <- function(concs,act,model,weights,start,direction,pboun
 		sfact <- 1-sfact
 		mnv <- c(mean(wt2*sfact),mean(wt2*sfact^2),mean(wt2*act),mean(wt2*sfact*act))
 		sfact <- 1-sfact
-		ebnd <- basicdrm:::boundedOpt1d(mnv,start[[9]],bsf$bounds)
+		ebnd <- boundedOpt1d(mnv,start[[9]],bsf$bounds)
 		ebnd[[3]] <- ebnd[[3]]*mean(weights^2)
 
 		sfact <- (start[[9]]-ebnd[[1]])*sfact+ebnd[[1]]-act
@@ -2547,10 +2547,10 @@ fitBraidScenario_III_2 <- function(concs,act,model,weights,start,direction,pboun
 	if (nbounds[1,npar-1]<0.5 || nbounds[1,npar]<0.5) {
 		tnbounds <- nbounds
 		tnbounds[,(npar-1):npar] <- pmax(nbounds[,(npar-1):npar],0.5)
-		tnls <- basicdrm:::runBoundedOptim(vdfunc,fpfunc,nstart,tnbounds)
-		nls <- basicdrm:::runBoundedOptim(vdfunc,fpfunc,tnls$par,nbounds)
+		tnls <- runBoundedOptim(vdfunc,fpfunc,nstart,tnbounds)
+		nls <- runBoundedOptim(vdfunc,fpfunc,tnls$par,nbounds)
 	} else {
-		nls <- basicdrm:::runBoundedOptim(vdfunc,fpfunc,nstart,nbounds)
+		nls <- runBoundedOptim(vdfunc,fpfunc,nstart,nbounds)
 	}
 
 	braidFitObject(nls,"III_2",concs,act,model,weights,start,direction,pbounds,kweight)
@@ -2589,7 +2589,7 @@ fitBraidScenario_III_3A <- function(concs,act,model,weights,start,direction,pbou
 	ibounds <- ibounds[,1]
 
 	# Get (2) outer bounds on E0 and Ef
-	base_obounds <- basicdrm:::getHillOuterBounds(direction,ebounds[,c(1,3)])
+	base_obounds <- getOuterBounds(direction,ebounds[,c(1,3)])
 
 	# Specify nbounds
 	# Specify nstart
@@ -2613,12 +2613,12 @@ fitBraidScenario_III_3A <- function(concs,act,model,weights,start,direction,pbou
 			i <- 1
 			if (is.finite(abbounds[j,i])) {
 				thisName <- paste0(bnms[i],btps[j])
-				nbounds <- basicdrm:::addBound2d(bounds,c(1-fpar[i],fpar[i],abbounds[j,i])*sign(1.5-j),thisName)
+				nbounds <- addBound2d(bounds,c(1-fpar[i],fpar[i],abbounds[j,i])*sign(1.5-j),thisName)
 				if (!is.null(nbounds)) { bounds <- nbounds }
 				else {
 					fV <- (abbounds[j,i]-bounds$verts[,1])/(bounds$verts[,2]-bounds$verts[,1])
 					if (fV[1]>=fpar[i]) { fpar[i] <- min(fV) } else { fpar[i] <- max(fV) }
-					bounds <- basicdrm:::addBound2d(bounds,c(1-fpar[i],fpar[i],abbounds[j,i])*sign(1.5-j),thisName)
+					bounds <- addBound2d(bounds,c(1-fpar[i],fpar[i],abbounds[j,i])*sign(1.5-j),thisName)
 				}
 			}
 		}
@@ -2631,7 +2631,7 @@ fitBraidScenario_III_3A <- function(concs,act,model,weights,start,direction,pbou
 		wt2 <- (weights^2)/mean(weights^2)
 		sfact <- evalBraidModel_sf(concs[,1],concs[,2],bsf$sfpar,calcderivs=FALSE)
 		mnv <- c(mean(wt2*sfact),mean(wt2*sfact^2),mean(wt2*act),mean(wt2*sfact*act))
-		ebnds <- basicdrm:::boundedOpt2d(mnv,bsf$bounds)
+		ebnds <- boundedOpt2d(mnv,bsf$bounds)
 		fpar <- c(bsf$sfpar[1:5],ebnds[1],ebnds[2],ebnds[2],ebnds[2])
 		fpar[7:8] <- ebnds[1]+(ebnds[2]-ebnds[1])*bsf$sfpar[6:7]
 		return(fpar)
@@ -2644,7 +2644,7 @@ fitBraidScenario_III_3A <- function(concs,act,model,weights,start,direction,pbou
 		sfact <- sfres$value
 		mnv <- c(mean(wt2*sfact),mean(wt2*sfact^2),mean(wt2*act),mean(wt2*sfact*act))
 		obounds <- bsf$bounds
-		ebnds <- basicdrm:::boundedOpt2d(mnv,obounds)
+		ebnds <- boundedOpt2d(mnv,obounds)
 		ebnds[4:5] <- ebnds[4:5]*mean(weights^2)
 		sfact <- (ebnds[2]-ebnds[1])*sfact+ebnds[1]-act
 		ovalue <- sum((weights*sfact)^2)
@@ -2678,7 +2678,7 @@ fitBraidScenario_III_3A <- function(concs,act,model,weights,start,direction,pbou
 	fpfunc <- function(p) par2fullpar(p,concs,act,weights,start,model,base_obounds,abbounds)
 
 	# Run optim
-	nls <- basicdrm:::runBoundedOptim(vdfunc,fpfunc,nstart,nbounds)
+	nls <- runBoundedOptim(vdfunc,fpfunc,nstart,nbounds)
 
 	braidFitObject(nls,"III_3A",concs,act,model,weights,start,direction,pbounds,kweight)
 }
@@ -2729,7 +2729,7 @@ fitBraidScenario_III_4 <- function(concs,act,model,weights,start,direction,pboun
 	else { ibounds <- c(ibounds[1,1],2-ibounds[1,2]) }
 
 	# Get (2) outer bounds on E0 and Ef
-	base_obounds <- basicdrm:::getHillOuterBounds(direction,cbind(ebounds[,1],efbound))
+	base_obounds <- getOuterBounds(direction,cbind(ebounds[,1],efbound))
 
 	# Specify nbounds
 	# Specify nstart
@@ -2753,12 +2753,12 @@ fitBraidScenario_III_4 <- function(concs,act,model,weights,start,direction,pboun
 			for (i in iv) {
 				if (is.finite(abbounds[j,i])) {
 					thisName <- paste0(bnms[i],btps[j])
-					nbounds <- basicdrm:::addBound2d(bounds,c(1-fpar[i],fpar[i],abbounds[j,i])*sign(1.5-j),thisName)
+					nbounds <- addBound2d(bounds,c(1-fpar[i],fpar[i],abbounds[j,i])*sign(1.5-j),thisName)
 					if (!is.null(nbounds)) { bounds <- nbounds }
 					else {
 						fV <- (abbounds[j,i]-bounds$verts[,1])/(bounds$verts[,2]-bounds$verts[,1])
 						if (fV[1]>=fpar[i]) { fpar[i] <- min(fV) } else { fpar[i] <- max(fV) }
-						bounds <- basicdrm:::addBound2d(bounds,c(1-fpar[i],fpar[i],abbounds[j,i])*sign(1.5-j),thisName)
+						bounds <- addBound2d(bounds,c(1-fpar[i],fpar[i],abbounds[j,i])*sign(1.5-j),thisName)
 					}
 				}
 			}
@@ -2772,7 +2772,7 @@ fitBraidScenario_III_4 <- function(concs,act,model,weights,start,direction,pboun
 		wt2 <- (weights^2)/mean(weights^2)
 		sfact <- evalBraidModel_sf(concs[,1],concs[,2],bsf$sfpar,calcderivs=FALSE)
 		mnv <- c(mean(wt2*sfact),mean(wt2*sfact^2),mean(wt2*act),mean(wt2*sfact*act))
-		ebnds <- basicdrm:::boundedOpt2d(mnv,bsf$bounds)
+		ebnds <- boundedOpt2d(mnv,bsf$bounds)
 		fpar <- c(bsf$sfpar[1:5],ebnds[1],ebnds[2],ebnds[2],ebnds[2])
 		fpar[7:8] <- ebnds[1]+(ebnds[2]-ebnds[1])*bsf$sfpar[6:7]
 		return(fpar)
@@ -2785,7 +2785,7 @@ fitBraidScenario_III_4 <- function(concs,act,model,weights,start,direction,pboun
 		sfact <- sfres$value
 		mnv <- c(mean(wt2*sfact),mean(wt2*sfact^2),mean(wt2*act),mean(wt2*sfact*act))
 		obounds <- bsf$bounds
-		ebnds <- basicdrm:::boundedOpt2d(mnv,obounds)
+		ebnds <- boundedOpt2d(mnv,obounds)
 		ebnds[4:5] <- ebnds[4:5]*mean(weights^2)
 		sfact <- (ebnds[2]-ebnds[1])*sfact+ebnds[1]-act
 		ovalue <- sum((weights*sfact)^2)
@@ -2831,10 +2831,10 @@ fitBraidScenario_III_4 <- function(concs,act,model,weights,start,direction,pboun
 	if (nbounds[1,npar]<0.5 || nbounds[2,npar]>1.5) {
 		tnbounds <- nbounds
 		tnbounds[,npar] <- c(max(nbounds[1,npar],0.5),min(nbounds[2,npar],1.5))
-		tnls <- basicdrm:::runBoundedOptim(vdfunc,fpfunc,nstart,tnbounds)
-		nls <- basicdrm:::runBoundedOptim(vdfunc,fpfunc,tnls$par,nbounds)
+		tnls <- runBoundedOptim(vdfunc,fpfunc,nstart,tnbounds)
+		nls <- runBoundedOptim(vdfunc,fpfunc,tnls$par,nbounds)
 	} else {
-		nls <- basicdrm:::runBoundedOptim(vdfunc,fpfunc,nstart,nbounds)
+		nls <- runBoundedOptim(vdfunc,fpfunc,nstart,nbounds)
 	}
 
 	braidFitObject(nls,"III_4",concs,act,model,weights,start,direction,pbounds,kweight)
@@ -2895,7 +2895,7 @@ fitBraidScenario_III_5 <- function(concs,act,model,weights,start,direction,pboun
 				if (is.finite(abbounds[j,i]) && fpar[i]>.Machine$double.eps) {
 					thisName <- paste0(bnms[i],btps[j])
 					thresh <- (abbounds[j,i] - (1-fpar[i])*start[[6]])/fpar[[i]]
-					nbounds <- basicdrm:::addBound1d(bounds,c(thresh,sign(1.5-j)),thisName)
+					nbounds <- addBound1d(bounds,c(thresh,sign(1.5-j)),thisName)
 
 					if (!is.null(nbounds)) { bounds <- nbounds }
 					else {
@@ -2922,7 +2922,7 @@ fitBraidScenario_III_5 <- function(concs,act,model,weights,start,direction,pboun
 		sfact <- evalBraidModel_sf(concs[,1],concs[,2],bsf$sfpar,calcderivs=FALSE)
 
 		mnv <- c(mean(wt2*sfact),mean(wt2*sfact^2),mean(wt2*act),mean(wt2*sfact*act))
-		ebnd <- basicdrm:::boundedOpt1d(mnv,start[[6]],bsf$bounds)
+		ebnd <- boundedOpt1d(mnv,start[[6]],bsf$bounds)
 
 		fpar <- c(bsf$sfpar[1:5],start[[6]],ebnd[[1]],ebnd[[1]],ebnd[[1]])
 		fpar[7:8] <- start[[6]]+(ebnd[[1]]-start[[6]])*bsf$sfpar[6:7]
@@ -2936,7 +2936,7 @@ fitBraidScenario_III_5 <- function(concs,act,model,weights,start,direction,pboun
 		sfact <- sfres$value
 
 		mnv <- c(mean(wt2*sfact),mean(wt2*sfact^2),mean(wt2*act),mean(wt2*sfact*act))
-		ebnd <- basicdrm:::boundedOpt1d(mnv,start[[6]],bsf$bounds)
+		ebnd <- boundedOpt1d(mnv,start[[6]],bsf$bounds)
 		ebnd[[3]] <- ebnd[[3]]*mean(weights^2)
 
 		sfact <- (ebnd[[1]]-start[[6]])*sfact+start[[6]]-act
@@ -2974,10 +2974,10 @@ fitBraidScenario_III_5 <- function(concs,act,model,weights,start,direction,pboun
 	if (nbounds[1,npar-1]<0.5 || nbounds[1,npar]<0.5) {
 		tnbounds <- nbounds
 		tnbounds[,(npar-1):npar] <- pmax(nbounds[,(npar-1):npar],0.5)
-		tnls <- basicdrm:::runBoundedOptim(vdfunc,fpfunc,nstart,tnbounds)
-		nls <- basicdrm:::runBoundedOptim(vdfunc,fpfunc,tnls$par,nbounds)
+		tnls <- runBoundedOptim(vdfunc,fpfunc,nstart,tnbounds)
+		nls <- runBoundedOptim(vdfunc,fpfunc,tnls$par,nbounds)
 	} else {
-		nls <- basicdrm:::runBoundedOptim(vdfunc,fpfunc,nstart,nbounds)
+		nls <- runBoundedOptim(vdfunc,fpfunc,nstart,nbounds)
 	}
 
 	braidFitObject(nls,"III_5",concs,act,model,weights,start,direction,pbounds,kweight)
@@ -3015,7 +3015,7 @@ fitBraidScenario_IV_1 <- function(concs,act,model,weights,start,direction,pbound
 	ibounds <- getInnerBounds(direction,ebounds)
 
 	# Get (2) outer bounds on E0 and Ef
-	base_obounds <- basicdrm:::getHillOuterBounds(direction,ebounds[,c(1,4)])
+	base_obounds <- getOuterBounds(direction,ebounds[,c(1,4)])
 
 	# Specify nbounds
 	# Specify nstart
@@ -3039,12 +3039,12 @@ fitBraidScenario_IV_1 <- function(concs,act,model,weights,start,direction,pbound
 			for (i in iv) {
 				if (is.finite(abbounds[j,i])) {
 					thisName <- paste0(bnms[i],btps[j])
-					nbounds <- basicdrm:::addBound2d(bounds,c(1-fpar[i],fpar[i],abbounds[j,i])*sign(1.5-j),thisName)
+					nbounds <- addBound2d(bounds,c(1-fpar[i],fpar[i],abbounds[j,i])*sign(1.5-j),thisName)
 					if (!is.null(nbounds)) { bounds <- nbounds }
 					else {
 						fV <- (abbounds[j,i]-bounds$verts[,1])/(bounds$verts[,2]-bounds$verts[,1])
 						if (fV[1]>=fpar[i]) { fpar[i] <- min(fV) } else { fpar[i] <- max(fV) }
-						bounds <- basicdrm:::addBound2d(bounds,c(1-fpar[i],fpar[i],abbounds[j,i])*sign(1.5-j),thisName)
+						bounds <- addBound2d(bounds,c(1-fpar[i],fpar[i],abbounds[j,i])*sign(1.5-j),thisName)
 					}
 				}
 			}
@@ -3058,7 +3058,7 @@ fitBraidScenario_IV_1 <- function(concs,act,model,weights,start,direction,pbound
 		wt2 <- (weights^2)/mean(weights^2)
 		sfact <- evalBraidModel_sf(concs[,1],concs[,2],bsf$sfpar,calcderivs=FALSE)
 		mnv <- c(mean(wt2*sfact),mean(wt2*sfact^2),mean(wt2*act),mean(wt2*sfact*act))
-		ebnds <- basicdrm:::boundedOpt2d(mnv,bsf$bounds)
+		ebnds <- boundedOpt2d(mnv,bsf$bounds)
 		fpar <- c(bsf$sfpar[1:5],ebnds[1],ebnds[2],ebnds[2],ebnds[2])
 		fpar[7:8] <- ebnds[1]+(ebnds[2]-ebnds[1])*bsf$sfpar[6:7]
 		return(fpar)
@@ -3071,7 +3071,7 @@ fitBraidScenario_IV_1 <- function(concs,act,model,weights,start,direction,pbound
 		sfact <- sfres$value
 		mnv <- c(mean(wt2*sfact),mean(wt2*sfact^2),mean(wt2*act),mean(wt2*sfact*act))
 		obounds <- bsf$bounds
-		ebnds <- basicdrm:::boundedOpt2d(mnv,obounds)
+		ebnds <- boundedOpt2d(mnv,obounds)
 		ebnds[4:5] <- ebnds[4:5]*mean(weights^2)
 		sfact <- (ebnds[2]-ebnds[1])*sfact+ebnds[1]-act
 		ovalue <- sum((weights*sfact)^2)
@@ -3115,10 +3115,10 @@ fitBraidScenario_IV_1 <- function(concs,act,model,weights,start,direction,pbound
 	if (nbounds[1,npar-1]<0.5 || nbounds[1,npar]<0.5) {
 		tnbounds <- nbounds
 		tnbounds[,(npar-1):npar] <- pmax(nbounds[,(npar-1):npar],0.5)
-		tnls <- basicdrm:::runBoundedOptim(vdfunc,fpfunc,nstart,tnbounds)
-		nls <- basicdrm:::runBoundedOptim(vdfunc,fpfunc,tnls$par,nbounds)
+		tnls <- runBoundedOptim(vdfunc,fpfunc,nstart,tnbounds)
+		nls <- runBoundedOptim(vdfunc,fpfunc,tnls$par,nbounds)
 	} else {
-		nls <- basicdrm:::runBoundedOptim(vdfunc,fpfunc,nstart,nbounds)
+		nls <- runBoundedOptim(vdfunc,fpfunc,nstart,nbounds)
 	}
 
 	braidFitObject(nls,"IV_1",concs,act,model,weights,start,direction,pbounds,kweight)
@@ -3201,6 +3201,16 @@ rectifyStart <- function(model,start,pbounds) {
 	newstart <- start
 	newstart[model] <- pmin(pmax(newstart[model],pbounds[1,]),pbounds[2,])
 	return(newstart)
+}
+getOuterBounds <- function(direction,spbounds) {
+	base_obounds <- emptyBound2d()
+	if (is.finite(spbounds[1,1])) { base_obounds <- addBound2d(base_obounds,c(1,0,spbounds[1,1]),"E0min") }
+	if (is.finite(spbounds[2,1])) { base_obounds <- addBound2d(base_obounds,c(-1,0,-spbounds[2,1]),"E0max") }
+	if (is.finite(spbounds[1,2])) { base_obounds <- addBound2d(base_obounds,c(0,1,spbounds[1,2]),"Efmin") }
+	if (is.finite(spbounds[2,2])) { base_obounds <- addBound2d(base_obounds,c(0,-1,-spbounds[2,2]),"Efmax") }
+	if (direction!=0) { base_obounds <- addBound2d(base_obounds,c(-direction,direction,0),"Direction") }
+	if (is.null(base_obounds)) { stop("Bounds specified by 'bounds' and 'direction' parameters cannot be satisified.") }
+	return(base_obounds)
 }
 getInnerBounds <- function(direction,spb) {
 	bib1 <- bib2 <- cbind(c(0,1),c(0,1))

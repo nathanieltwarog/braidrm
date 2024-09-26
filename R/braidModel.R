@@ -312,8 +312,8 @@ invertBraidModel_sf <- function(DA=NULL,DB=NULL,Rf,parsf,values=c(0,Inf),lowerBo
 		kappaRatio[kappaRatio<0] <- 0
 		kappaRatio <- clip_positive(kappaRatio^2) # (0, Inf)
 		DTA <- ifelse(DB==0,DTAB*(!lowerBound),(CTB*kappaRatio)^n) # [0, Inf]
-		if (lowerBound) { lob <- lob | (DTA > FA/(1-FA)) }
-		else { uob <- uob | (DTA > FA/(1-FA)) }
+		if (lowerBound) { lob <- lob | (DTA >= FA/(1-FA)) }
+		else { uob <- uob | (DTA >= FA/(1-FA)) }
 		if (FA==1) { CCA <- DTA }
 		else {
 			CCA <- (FA/(FA-(1-FA)*DTA) - 1)/(1-FA)
@@ -352,8 +352,8 @@ invertBraidModel_sf <- function(DA=NULL,DB=NULL,Rf,parsf,values=c(0,Inf),lowerBo
 		kappaRatio[kappaRatio<0] <- 0
 		kappaRatio <- clip_positive(kappaRatio^2) # (0, Inf)
 		DTB <- ifelse(DA==0,DTAB*(!lowerBound),(CTA*kappaRatio)^n) # [0, Inf]
-		if (lowerBound) { lob <- lob | (DTB > FB/(1-FB)) }
-		else { uob <- uob | (DTB > FB/(1-FB)) }
+		if (lowerBound) { lob <- lob | (DTB >= FB/(1-FB)) }
+		else { uob <- uob | (DTB >= FB/(1-FB)) }
 		if (FB==1) { CCB <- DTB }
 		else {
 			CCB <- (FB/(FB-(1-FB)*DTB) - 1)/(1-FB)

@@ -167,8 +167,6 @@ findBestBraid.default <- function(formula,data,defaults,extended=FALSE,weights=N
 
 	if (useBIC) { icv <- sapply(allfits,function(m) m$BIC) }
 	else { icv <- sapply(allfits,function(m) m$AIC) }
-	# parv <- sapply(allfits,function(m) length(m$model))
-	# biv <- basicdrm:::modelSelect(icv,parv,ik=5)
 	biv <- which.min(icv)
 
 	bfit <- allmodels[[biv]]

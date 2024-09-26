@@ -281,28 +281,28 @@ dualHillFit <- function(conc1,conc2,act,weights=NULL,limits=c(NA,NA)) {
 
 	if (is.na(limits[[1]])) {
 		if (is.na(limits[[2]])) {
-			obounds <- basicdrm:::getHillOuterBounds(0,pbounds[,6:7])
+			obounds <- getOuterBounds(0,pbounds[,6:7])
 			fpfunc <- function(parv) {
-				sfact1 <- basicdrm:::evalHillModel_sf(c1rel,exp(parv[c(1,3)]),calcderivs=FALSE)
-				sfact2 <- basicdrm:::evalHillModel_sf(c2rel,exp(parv[c(2,4)]),calcderivs=FALSE)
+				sfact1 <- evalHillModel_sf(c1rel,exp(parv[c(1,3)]),calcderivs=FALSE)
+				sfact2 <- evalHillModel_sf(c2rel,exp(parv[c(2,4)]),calcderivs=FALSE)
 				sfact <- c(rep(0,length(azrel)),sfact1,sfact2)
 				wt2 <- (trwts^2)/mean(trwts^2)
 
 				mnv <- c(mean(wt2*sfact),mean(wt2*sfact^2),mean(wt2*tract),mean(wt2*sfact*tract))
-				ebnds <- basicdrm:::boundedOpt2d(mnv,obounds)
+				ebnds <- boundedOpt2d(mnv,obounds)
 				fpar <- c(exp(parv),ebnds[1],ebnds[2])
 			}
 			# Define valderivfunc
 			vdfunc <- function(parv) {
-				sfres1 <- basicdrm:::evalHillModel_sf(c1rel,exp(parv[c(1,3)]),calcderivs=TRUE)
+				sfres1 <- evalHillModel_sf(c1rel,exp(parv[c(1,3)]),calcderivs=TRUE)
 				sfact1 <- sfres1$value
-				sfres2 <- basicdrm:::evalHillModel_sf(c2rel,exp(parv[c(2,4)]),calcderivs=TRUE)
+				sfres2 <- evalHillModel_sf(c2rel,exp(parv[c(2,4)]),calcderivs=TRUE)
 				sfact2 <- sfres2$value
 				sfact <- c(rep(0,length(azrel)),sfact1,sfact2)
 				wt2 <- (trwts^2)/mean(trwts^2)
 
 				mnv <- c(mean(wt2*sfact),mean(wt2*sfact^2),mean(wt2*tract),mean(wt2*sfact*tract))
-				ebnds <- basicdrm:::boundedOpt2d(mnv,obounds)
+				ebnds <- boundedOpt2d(mnv,obounds)
 				ebnds[4:5] <- ebnds[4:5]*mean(trwts^2)
 				sfact <- (ebnds[2]-ebnds[1])*sfact+ebnds[1]-tract
 				ovalue <- sum((trwts*sfact)^2)
@@ -319,22 +319,22 @@ dualHillFit <- function(conc1,conc2,act,weights=NULL,limits=c(NA,NA)) {
 			obounds <- as.numeric(pbounds[,6])
 			# Define par2fullpar
 			fpfunc <- function(parv) {
-				sfact1 <- basicdrm:::evalHillModel_sf(c1rel,exp(parv[c(1,3)]),calcderivs=FALSE)
-				sfact2 <- basicdrm:::evalHillModel_sf(c2rel,exp(parv[c(2,4)]),calcderivs=FALSE)
+				sfact1 <- evalHillModel_sf(c1rel,exp(parv[c(1,3)]),calcderivs=FALSE)
+				sfact2 <- evalHillModel_sf(c2rel,exp(parv[c(2,4)]),calcderivs=FALSE)
 				sfact <- c(rep(0,length(azrel)),sfact1,sfact2)
 				wt2 <- (trwts^2)/mean(trwts^2)
 
 				sfact <- 1-sfact
 				mnv <- c(mean(wt2*sfact),mean(wt2*sfact^2),mean(wt2*tract),mean(wt2*sfact*tract))
-				ebnd <- basicdrm:::boundedOpt1d(mnv,limits[[2]],obounds)
+				ebnd <- boundedOpt1d(mnv,limits[[2]],obounds)
 				fpar <- c(exp(parv),ebnd[[1]],limits[[2]])
 				return(fpar)
 			}
 			# Define valderivfunc
 			vdfunc <- function(parv) {
-				sfres1 <- basicdrm:::evalHillModel_sf(c1rel,exp(parv[c(1,3)]),calcderivs=TRUE)
+				sfres1 <- evalHillModel_sf(c1rel,exp(parv[c(1,3)]),calcderivs=TRUE)
 				sfact1 <- sfres1$value
-				sfres2 <- basicdrm:::evalHillModel_sf(c2rel,exp(parv[c(2,4)]),calcderivs=TRUE)
+				sfres2 <- evalHillModel_sf(c2rel,exp(parv[c(2,4)]),calcderivs=TRUE)
 				sfact2 <- sfres2$value
 				sfact <- c(rep(0,length(azrel)),sfact1,sfact2)
 				wt2 <- (trwts^2)/mean(trwts^2)
@@ -342,7 +342,7 @@ dualHillFit <- function(conc1,conc2,act,weights=NULL,limits=c(NA,NA)) {
 				sfact <- 1-sfact
 				mnv <- c(mean(wt2*sfact),mean(wt2*sfact^2),mean(wt2*tract),mean(wt2*sfact*tract))
 				sfact <- 1-sfact
-				ebnd <- basicdrm:::boundedOpt1d(mnv,limits[[2]],obounds)
+				ebnd <- boundedOpt1d(mnv,limits[[2]],obounds)
 				ebnd[[3]] <- ebnd[[3]]*mean(trwts^2)
 				sfact <- (limits[[2]]-ebnd[[1]])*sfact+ebnd[[1]]-act
 				ovalue <- sum((trwts*sfact)^2)
@@ -361,27 +361,27 @@ dualHillFit <- function(conc1,conc2,act,weights=NULL,limits=c(NA,NA)) {
 			obounds <- as.numeric(pbounds[,7])
 			# Define par2fullpar
 			fpfunc <- function(parv) {
-				sfact1 <- basicdrm:::evalHillModel_sf(c1rel,exp(parv[c(1,3)]),calcderivs=FALSE)
-				sfact2 <- basicdrm:::evalHillModel_sf(c2rel,exp(parv[c(2,4)]),calcderivs=FALSE)
+				sfact1 <- evalHillModel_sf(c1rel,exp(parv[c(1,3)]),calcderivs=FALSE)
+				sfact2 <- evalHillModel_sf(c2rel,exp(parv[c(2,4)]),calcderivs=FALSE)
 				sfact <- c(rep(0,length(azrel)),sfact1,sfact2)
 				wt2 <- (trwts^2)/mean(trwts^2)
 
 				mnv <- c(mean(wt2*sfact),mean(wt2*sfact^2),mean(wt2*tract),mean(wt2*sfact*tract))
-				ebnd <- basicdrm:::boundedOpt1d(mnv,limits[[1]],obounds)
+				ebnd <- boundedOpt1d(mnv,limits[[1]],obounds)
 				fpar <- c(exp(parv),limits[[1]],ebnd[[1]])
 				return(fpar)
 			}
 			# Define valderivfunc
 			vdfunc <- function(parv) {
-				sfres1 <- basicdrm:::evalHillModel_sf(c1rel,exp(parv[c(1,3)]),calcderivs=TRUE)
+				sfres1 <- evalHillModel_sf(c1rel,exp(parv[c(1,3)]),calcderivs=TRUE)
 				sfact1 <- sfres1$value
-				sfres2 <- basicdrm:::evalHillModel_sf(c2rel,exp(parv[c(2,4)]),calcderivs=TRUE)
+				sfres2 <- evalHillModel_sf(c2rel,exp(parv[c(2,4)]),calcderivs=TRUE)
 				sfact2 <- sfres2$value
 				sfact <- c(rep(0,length(azrel)),sfact1,sfact2)
 				wt2 <- (trwts^2)/mean(trwts^2)
 
 				mnv <- c(mean(wt2*sfact),mean(wt2*sfact^2),mean(wt2*tract),mean(wt2*sfact*tract))
-				ebnd <- basicdrm:::boundedOpt1d(mnv,limits[[1]],obounds)
+				ebnd <- boundedOpt1d(mnv,limits[[1]],obounds)
 				ebnd[[3]] <- ebnd[[3]]*mean(trwts^2)
 				sfact <- (ebnd[[1]]-limits[[1]])*sfact+limits[[1]]-tract
 				ovalue <- sum((trwts*sfact)^2)
@@ -397,9 +397,9 @@ dualHillFit <- function(conc1,conc2,act,weights=NULL,limits=c(NA,NA)) {
 		} else  {
 			fpfunc <- function(parv) { fpar <- c(exp(parv),limits) }
 			vdfunc <- function(parv) {
-				sfres1 <- basicdrm:::evalHillModel_sf(c1rel,exp(parv[c(1,3)]),calcderivs=TRUE)
+				sfres1 <- evalHillModel_sf(c1rel,exp(parv[c(1,3)]),calcderivs=TRUE)
 				sfact1 <- sfres1$value
-				sfres2 <- basicdrm:::evalHillModel_sf(c2rel,exp(parv[c(2,4)]),calcderivs=TRUE)
+				sfres2 <- evalHillModel_sf(c2rel,exp(parv[c(2,4)]),calcderivs=TRUE)
 				sfact2 <- sfres2$value
 				sfact <- c(rep(0,length(azrel)),sfact1,sfact2)
 				sfact <- (limits[2]-limits[1])*sfact+limits[1]-tract
@@ -415,9 +415,26 @@ dualHillFit <- function(conc1,conc2,act,weights=NULL,limits=c(NA,NA)) {
 		}
 	}
 	# Run optim
-	nls <- basicdrm:::runBoundedOptim(vdfunc,fpfunc,nstart,nbounds)
+	nls <- runBoundedOptim(vdfunc,fpfunc,nstart,nbounds)
 
 	nls$fullpar
+}
+
+evalHillModel_sf <- function(conc,sfpar,calcderivs=FALSE) {
+	IDM <- clip_positive(sfpar[[1]])
+	n <- clip_positive(sfpar[[2]])
+
+	pow <- (conc/IDM)^n   # [0, Inf]
+	R0 <- 1/(1+pow)       # [0, 1]
+	Rf <- 1-R0            # [0, 1]
+
+	if(!calcderivs) { return(Rf) }
+	padj <- (Rf^2)/pmax(pow,.Machine$double.xmin)
+
+	dRfdIDM <- -padj*clip_positive(n/IDM)
+	dRfdn <- padj*clip_finite(log(conc/IDM))
+
+	return(list(value=Rf,derivatives=cbind(dRfdIDM,dRfdn)))
 }
 
 #' @export

@@ -93,7 +93,7 @@ fitUrsaModel.default <- function(formula,data,weights=NULL,direction=0,lower=NUL
 	nbounds[,1:4] <- log(nbounds[,1:4])
 	nbounds[,5] <- log(nbounds[,5]+1)
 
-	obounds <- basicdrm:::getHillOuterBounds(direction,pbounds[,6:7])
+	obounds <- getOuterBounds(direction,pbounds[,6:7])
 
 	# Define par2fullpar
 	par2fullpar <- function(parv,concs,act,weights,start,obounds) {
@@ -101,7 +101,7 @@ fitUrsaModel.default <- function(formula,data,weights=NULL,direction=0,lower=NUL
 		wt2 <- (weights^2)/mean(weights^2)
 		sfact <- evalUrsaModel(concs[,1],concs[,2],sfpar)
 		mnv <- c(mean(wt2*sfact),mean(wt2*sfact^2),mean(wt2*act),mean(wt2*sfact*act))
-		ebnds <- basicdrm:::boundedOpt2d(mnv,obounds)
+		ebnds <- boundedOpt2d(mnv,obounds)
 		fpar <- c(sfpar[1:5],ebnds[1],ebnds[2])
 		return(fpar)
 	}
@@ -111,7 +111,7 @@ fitUrsaModel.default <- function(formula,data,weights=NULL,direction=0,lower=NUL
 		wt2 <- (weights^2)/mean(weights^2)
 		sfact <- evalUrsaModel(concs[,1],concs[,2],sfpar)
 		mnv <- c(mean(wt2*sfact),mean(wt2*sfact^2),mean(wt2*act),mean(wt2*sfact*act))
-		ebnds <- basicdrm:::boundedOpt2d(mnv,obounds)
+		ebnds <- boundedOpt2d(mnv,obounds)
 		sfact <- (ebnds[2]-ebnds[1])*sfact+ebnds[1]-act
 		ovalue <- sum((weights*sfact)^2)
 		return(ovalue)
