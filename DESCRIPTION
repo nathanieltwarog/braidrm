@@ -1,6 +1,6 @@
 Package: braidrm
 Title: Fitting Combined Action with the BRAID Response Surface Model
-Version: 1.0.3
+Version: 1.0.4
 Authors@R: c(
     person("Anang", "Shelat", email = "anang.shelat@stjude.org", role = c("aut")),
     person("Nathaniel R.", "Twarog", email ="nathaniel.twarog@stjude.org", role = c("aut", "cre")))

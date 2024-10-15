@@ -560,10 +560,10 @@ fitBraidScenario_I_5A <- function(concs,act,model,weights,start,direction,pbound
 		stop("Unsatisfiable bounds.")
 	}
 
-	bfit$scenario <- "I_5A"
-	bfit$model <- model
-	bfit$start <- start
-	bfit$pbounds <- pbounds
+	# bfit$scenario <- "I_5A"
+	# bfit$model <- model
+	# bfit$start <- start
+	# bfit$pbounds <- pbounds
 	bfit
 }
 # E0 fixed, EfA fixed at constant, EfB varies freely, Ef fixed equal to maximum
@@ -576,7 +576,12 @@ fitBraidScenario_I_5B <- function(concs,act,model,weights,start,direction,pbound
 									 direction,
 									 swapBoundMat(pbounds,model),
 									 kweight)
-	swapBraidFitObject(flipfit,"I_5B")
+	# swapBraidFitObject(flipfit,"I_5B")
+	if (flipfit$scenario=="I_3A") {
+		swapBraidFitObject(flipfit,"I_3B")
+	} else if (flipfit$scenario=="I_4A") {
+		swapBraidFitObject(flipfit,"I_4B")
+	} else { stop("Invalid sub-scenario.")}
 }
 
 # E0 fixed, Ef varies freely, EfA and EfB fixed equal to Ef
@@ -1444,11 +1449,11 @@ fitBraidScenario_II_4A <- function(concs,act,model,weights,start,direction,pboun
 		stop("Unsatisfiable bounds.")
 	}
 
-	bfit$scenario <- "II_4A"
-	bfit$model <- model
-	bfit$start <- start
-	bfit$direction <- direction
-	bfit$pbounds <- pbounds
+	# bfit$scenario <- "II_4A"
+	# bfit$model <- model
+	# bfit$start <- start
+	# bfit$direction <- direction
+	# bfit$pbounds <- pbounds
 	bfit
 }
 # E0 and EfB vary, EfA fixed at constant, Ef fixed equal to maximum
@@ -1461,7 +1466,12 @@ fitBraidScenario_II_4B <- function(concs,act,model,weights,start,direction,pboun
 									  direction,
 									  swapBoundMat(pbounds,model),
 									  kweight)
-	swapBraidFitObject(flipfit,"II_4B")
+	# swapBraidFitObject(flipfit,"II_4B")
+	if (flipfit$scenario=="II_2A") {
+		swapBraidFitObject(flipfit,"II_2B")
+	} else if (flipfit$scenario=="II_3B") {
+		swapBraidFitObject(flipfit,"II_3A")
+	} else { stop("Invalid sub-scenario.") }
 }
 
 # Scenario II 6: E0 and Ef vary freely, EfA and EfB fixed equal to Ef
