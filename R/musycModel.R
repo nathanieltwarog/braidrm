@@ -657,12 +657,12 @@ checkSet <- function(set1,set2) {
 }
 
 minimizeQuadratic <- function(cq) {
-	Evec <- solve(cq$Amat,cq$bvec)
+	Evec <- solve(cq$Amat,cq$bvec,tol=0)
 	Oval <- cq$cscalar-as.numeric(t(cq$bvec)%*%Evec)
 	return(list(Evec=Evec,Oval=Oval))
 }
 minimizeQuadraticDerivatives <- function(cq,cqderivs) {
-	Evec <- solve(cq$Amat,cq$bvec)
+	Evec <- solve(cq$Amat,cq$bvec,tol=0)
 	Oval <- cq$cscalar-as.numeric(t(cq$bvec)%*%Evec)
 
 	Oderiv <- rep(0,length(cqderivs))
@@ -678,9 +678,9 @@ minimizeQuadraticDerivatives <- function(cq,cqderivs) {
 minimizeConstrainedQuadratic <- function(cq) {
 	mq <- minimizeQuadratic(cq)
 	if (is.null(cq$Wcoef)||length(cq$Wcoef)==0) { return(mq) }
-	Aw <- solve(cq$Amat)%*%cq$Wcoef
+	Aw <- solve(cq$Amat,tol=0)%*%cq$Wcoef
 	altZ <- -(t(cq$Wcoef)%*%mq$Evec-cq$zval)
-	wAwaltZ <- solve(t(cq$Wcoef)%*%Aw,altZ)
+	wAwaltZ <- solve(t(cq$Wcoef)%*%Aw,altZ,tol=0)
 	list(Evec=mq$Evec+Aw%*%wAwaltZ,
 		 Oval=mq$Oval+t(altZ)%*%wAwaltZ)
 }
@@ -688,9 +688,9 @@ minimizeConstrainedQuadraticDerivatives <- function(cq,cqderivs) {
 	if (is.null(cq$Wcoef)||length(cq$Wcoef)==0) {
 		return(minimizeQuadraticDerivatives(cq,cqderivs))
 	} else { mq <- minimizeQuadratic(cq) }
-	Aw <- solve(cq$Amat)%*%cq$Wcoef
+	Aw <- solve(cq$Amat,tol=0)%*%cq$Wcoef
 	altZ <- -(t(cq$Wcoef)%*%mq$Evec-cq$zval)
-	wAwaltZ <- solve(t(cq$Wcoef)%*%Aw,altZ)
+	wAwaltZ <- solve(t(cq$Wcoef)%*%Aw,altZ,tol=0)
 	Evec <- as.numeric(mq$Evec+Aw%*%wAwaltZ)
 
 	Oderiv <- rep(0,length(cqderivs))
