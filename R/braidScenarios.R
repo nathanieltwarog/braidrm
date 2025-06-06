@@ -534,7 +534,7 @@ fitBraidScenario_I_5A <- function(concs,act,model,weights,start,direction,pbound
 			start1[[7]] <- start[[8]]
 		}
 		start1[[9]] <- start[[8]]
-		bfit1 <- fitBraidScenario_I_3A(concs,act,model1,weights,start1,direction,pbounds,kweight=0)
+		bfit1 <- fitBraidScenario_I_3A(concs,act,model1,weights,start1,direction,pbounds,kweight)
 	}
 	if (checkModel2) {
 		model2 <- c(model[which(model<=5)],9)
@@ -544,7 +544,7 @@ fitBraidScenario_I_5A <- function(concs,act,model,weights,start,direction,pbound
 			start2[[7]] <- start[[8]]
 		}
 		start2[[9]] <- start2[[7]]
-		bfit2 <- fitBraidScenario_I_4A(concs,act,model2,weights,start2,direction,pbounds,kweight=0)
+		bfit2 <- fitBraidScenario_I_4A(concs,act,model2,weights,start2,direction,pbounds,kweight)
 	}
 
 	if (checkModel1 && checkModel2) {
@@ -690,13 +690,13 @@ fitBraidScenario_II_1 <- function(concs,act,model,weights,start,direction,pbound
 		start1 <- start
 		start1[[6]] <- min(start1[[6]],erng[[1]])
 		start1[[9]] <- max(start1[[9]],erng[[2]])
-		bfit1 <- fitBraidScenario_II_1d(concs,act,model,weights,start1,direction=1,pbounds,kweight=0)
+		bfit1 <- fitBraidScenario_II_1d(concs,act,model,weights,start1,direction=1,pbounds,kweight)
 	}
 	if (direction<=0) {
 		start2 <- start
 		start2[[6]] <- max(start2[[6]],erng[[2]])
 		start2[[9]] <- min(start2[[9]],erng[[1]])
-		bfit2 <- fitBraidScenario_II_1d(concs,act,model,weights,start2,direction=-1,pbounds,kweight=0)
+		bfit2 <- fitBraidScenario_II_1d(concs,act,model,weights,start2,direction=-1,pbounds,kweight)
 	}
 
 	if (direction==0) {
@@ -1423,7 +1423,7 @@ fitBraidScenario_II_4A <- function(concs,act,model,weights,start,direction,pboun
 			start1[[7]] <- start[[8]]
 		}
 		start1[[9]] <- start1[[8]]
-		bfit1 <- fitBraidScenario_II_2As(concs,act,model1,weights,start1,direction,pbounds,kweight=0)
+		bfit1 <- fitBraidScenario_II_2As(concs,act,model1,weights,start1,direction,pbounds,kweight)
 	}
 	if (checkModel2) {
 		model2 <- c(model[which(model<=5)],6,9)
@@ -1433,7 +1433,7 @@ fitBraidScenario_II_4A <- function(concs,act,model,weights,start,direction,pboun
 			start2[[7]] <- start[[8]]
 		}
 		start2[[9]] <- start2[[7]]
-		bfit2 <- fitBraidScenario_II_3B(concs,act,model2,weights,start2,direction,pbounds,kweight=0)
+		bfit2 <- fitBraidScenario_II_3B(concs,act,model2,weights,start2,direction,pbounds,kweight)
 	}
 
 	if (checkModel1 && checkModel2) {
@@ -2109,7 +2109,7 @@ fitBraidScenario_III_1A <- function(concs,act,model,weights,start,direction,pbou
 	start <- rectifyStart(model,start,pbounds)
 
 	if (ebounds[1,2]>start[[8]] || ebounds[2,2]<start[[8]]) {
-		return(fitBraidScenario_III_1As(concs,act,model,weights,start,direction,pbounds,kweight=0))
+		return(fitBraidScenario_III_1As(concs,act,model,weights,start,direction,pbounds,kweight))
 	}
 
 	# Rectify (2) inner bounds on fA and fB
@@ -2267,13 +2267,13 @@ fitBraidScenario_III_1As <- function(concs,act,model,weights,start,direction,pbo
 		start1 <- start
 		start1[[6]] <- min(start1[[6]],erng[[1]])
 		start1[[9]] <- max(start1[[9]],erng[[2]])
-		bfit1 <- fitBraidScenario_III_1Ad(concs,act,model,weights,start1,direction=1,pbounds,kweight=0)
+		bfit1 <- fitBraidScenario_III_1Ad(concs,act,model,weights,start1,direction=1,pbounds,kweight)
 	}
 	if (direction<=0) {
 		start2 <- start
 		start2[[6]] <- max(start2[[6]],erng[[2]])
 		start2[[9]] <- min(start2[[9]],erng[[1]])
-		bfit2 <- fitBraidScenario_III_1Ad(concs,act,model,weights,start2,direction=-1,pbounds,kweight=0)
+		bfit2 <- fitBraidScenario_III_1Ad(concs,act,model,weights,start2,direction=-1,pbounds,kweight)
 	}
 
 	if (direction==0) {

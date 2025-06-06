@@ -1,6 +1,6 @@
 Package: braidrm
 Title: Fitting Combined Action with the BRAID Response Surface Model
-Version: 1.0.4
+Version: 1.0.5
 Authors@R: c(
     person("Anang", "Shelat", email = "anang.shelat@stjude.org", role = c("aut")),
     person("Nathaniel R.", "Twarog", email ="nathaniel.twarog@stjude.org", role = c("aut", "cre")))
@@ -15,7 +15,7 @@ Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.1
 Config/Needs/website: rmarkdown
 Depends: 
-    R (>= 3.10)
+    R (>= 3.0)
 LazyData: true
 Suggests: 
     braidReports (>= 1.0.0),
