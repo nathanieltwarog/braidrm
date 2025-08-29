@@ -1261,7 +1261,7 @@ fitBraidScenario_II_3B <- function(concs,act,model,weights,start,direction,pboun
 	if (direction>0) {
 		ebounds[2,1] <- min(ebounds[2,1],start[[7]])
 		ebounds[1,2] <- max(ebounds[1,2],start[[7]])
-	} else if (direction>0) {
+	} else if (direction<0) {
 		ebounds[1,1] <- max(ebounds[1,1],start[[7]])
 		ebounds[2,2] <- min(ebounds[2,2],start[[7]])
 	}
@@ -1273,7 +1273,7 @@ fitBraidScenario_II_3B <- function(concs,act,model,weights,start,direction,pboun
 
 	# Rectify (2) inner bounds on fA and fB
 	ibounds <- getInnerBounds(direction,cbind(ebounds[,1],c(start[[7]],start[[7]]),
-											  c(start[[8]],start[[8]]),ebounds[,2]))
+											  ebounds[,2],ebounds[,2]))
 	ibounds <- ibounds[,1]
 
 	# Specify nbounds
