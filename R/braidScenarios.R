@@ -946,9 +946,12 @@ fitBraidScenario_II_2A <- function(concs,act,model,weights,start,direction,pboun
 	}
 
 	# Rectify direction
-	if (start[[8]]<start[[9]]) { direction <- setDirection(1,direction) }
-	else if (start[[8]]>start[[9]]) { direction <- setDirection(-1,direction) }
-	else { return(fitBraidScenario_II_2As(concs,act,model,weights,start,direction,pbounds,kweight)) }
+	if (start[[9]]-start[[8]] > .Machine$double.eps) { direction <- setDirection(1,direction) }
+	else if (start[[8]]-start[[9]] > .Machine$double.eps) { direction <- setDirection(-1,direction) }
+	else {
+		start[[8]] <- start[[9]]
+		return(fitBraidScenario_II_2As(concs,act,model,weights,start,direction,pbounds,kweight))
+	}
 	ebounds <- pbounds[,which(model>5),drop=FALSE]
 	if (direction<0) {
 		ebounds[1,2] <- max(ebounds[1,2],start[[9]])

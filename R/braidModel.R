@@ -279,14 +279,15 @@ invertBraidModel_sf <- function(DA=NULL,DB=NULL,Rf,parsf,values=c(0,Inf),lowerBo
 	lob <- rep(FALSE,length(Rf))
 	uob <- rep(FALSE,length(Rf))
 
-	DTAB <- (Rf/(1-Rf))^(1/n)
+	DTAB <- (Rf/(1-Rf))
+	CTAB <- DTAB^(1/n)
 	if (is.null(DA)) {
 		lnDB <- CB-log(DB)  # [-Inf, Inf]
 		pDB <- exp(nb*lnDB)  # [0, Inf]
 		DTB <- FB/(1+pDB-FB)  # [0, Inf]
 		CTB <- DTB^(1/n) # [0, Inf]
 
-		RB <- DTAB/clip_positive(CTB) # [0, Inf]
+		RB <- CTAB/clip_positive(CTB) # [0, Inf]
 		determinant <- kappa^2 - 4 + 4*RB
 		determinant[determinant<0] <- 0
 		if (kappa>0) {
@@ -326,7 +327,7 @@ invertBraidModel_sf <- function(DA=NULL,DB=NULL,Rf,parsf,values=c(0,Inf),lowerBo
 		DTA <- FA/(1+pDA-FA)  # [0, Inf]
 		CTA <- DTA^(1/n) # [0, Inf]
 
-		RA <- DTAB/clip_positive(CTA) # [0, Inf]
+		RA <- CTAB/clip_positive(CTA) # [0, Inf]
 		determinant <- kappa^2 - 4 + 4*RA
 		determinant[determinant<0] <- 0
 		if (kappa>0) {
